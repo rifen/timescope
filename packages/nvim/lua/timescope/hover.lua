@@ -1,8 +1,9 @@
 local M = {}
 
 -- Compute the bridge path relative to this file
+-- hover.lua is at lua/timescope/hover.lua, bridge is at bin/timescope-bridge.js
 local plugin_root = debug.getinfo(1, 'S').source:match('@?(.*/)')
-local bridge_path = plugin_root .. '../bin/timescope-bridge.js'
+local bridge_path = plugin_root .. '../../bin/timescope-bridge.js'
 
 function M.setup()
   local group = vim.api.nvim_create_augroup('TimeScope', { clear = true })
@@ -31,13 +32,21 @@ function M.show_duration()
   -- Call Node.js bridge
   local input = vim.fn.json_encode({ token = token, line = line })
 
-  vim.fn.jobstart({ 'node', bridge_path }, {
+  local job = vim.fn.jobstart({ 'node', bridge_path }, {
     stdin = 'pipe',
     stdout = 'pipe',
+    stderr = 'pipe',
     on_stdout = function(_, data)
       if not data or #data == 0 then return end
 
-      local response = vim.fn.json_decode(table.concat(data))
+      local raw = table.concat(data)
+      if raw == '' or raw == 'null' then return end
+
+      local ok, response = pcall(vim.fn.json_decode, raw)
+      if not ok then
+        vim.notify('TimeScope: JSON decode error: ' .. tostring(response) .. ' (raw: ' .. raw .. ')', vim.log.levels.ERROR)
+        return
+      end
       if response and response.text then
         local virt_text = { { response.text, 'Comment' } }
 
@@ -52,23 +61,42 @@ function M.show_duration()
         })
       end
     end
-  }):write(input)
+  })
+  if job > 0 then
+    -- Send the JSON payload followed by a newline so the bridge reads a complete line
+    vim.fn.chansend(job, input .. "\n")
+  end
 end
 
 function M.get_token_at_cursor(line, col)
-  -- Find the number at or before cursor position
-  local before = line:sub(1, col + 1)
-  local after = line:sub(col + 1)
+  -- Find the full number that contains the cursor position
+  -- Search backward from cursor to find start of number
+  local num_start = nil
+  for i = col + 1, 1, -1 do
+    local ch = line:sub(i, i)
+    if ch:match('%d') then
+      num_start = i
+    else
+      break
+    end
+  end
 
-  -- Look for number boundaries
-  local num_start = before:match('.*()%d')
-  local num_end = after:match('%d+()')
+  -- Search forward from cursor to find end of number
+  local num_end = nil
+  for i = col + 1, #line do
+    local ch = line:sub(i, i)
+    if ch:match('%d') then
+      num_end = i
+    else
+      break
+    end
+  end
 
   if not num_start or not num_end then
     return nil
   end
 
-  return line:sub(num_start, col + num_end - 1)
+  return line:sub(num_start, num_end)
 end
 
 M.namespace = vim.api.nvim_create_namespace('timescope')
