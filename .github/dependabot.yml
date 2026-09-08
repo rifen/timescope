@@ -21,10 +21,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    ignore:
-      # CodeQL action requires manual review due to version-specific CLI dependency
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "github-actions"
