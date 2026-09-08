@@ -2,7 +2,7 @@
 
 **Hover any integer duration → see human-readable time instantly.**
 
-![CI](https://github.com/rifen/timescope/actions/workflows/ci.yml/badge.svg) ![CodeQL](https://github.com/rifen/timescope/actions/workflows/codeql.yml/badge.svg) ![npm](https://img.shields.io/npm/v/@rifen/timescope-core.svg) ![VS Code Marketplace](https://img.shields.io/vscode/rating/rifen.rifen-timescope) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![CI](https://github.com/rifen/timescope/actions/workflows/ci.yml/badge.svg) ![CodeQL](https://github.com/rifen/timescope/actions/workflows/codeql.yml/badge.svg) ![npm](https://img.shields.io/npm/v/@rifen/timescope-core.svg) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 TimeScope is a cross-editor tool that eliminates mental math by hovering over numeric durations and revealing their human-readable meaning.
 
