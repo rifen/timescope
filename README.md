@@ -2,7 +2,7 @@
 
 **Hover any integer duration → see human-readable time instantly.**
 
-![CI](https://github.com/rifen/timescope/actions/workflows/ci.yml/badge.svg) ![CodeQL](https://github.com/rifen/timescope/actions/workflows/codeql.yml/badge.svg) ![npm](https://img.shields.io/npm/v/@rifen/timescope-core.svg) ![VS Code Marketplace](https://img.shields.io/vscode/rating/rifen.timescope) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![CI](https://github.com/rifen/timescope/actions/workflows/ci.yml/badge.svg) ![CodeQL](https://github.com/rifen/timescope/actions/workflows/codeql.yml/badge.svg) ![npm](https://img.shields.io/npm/v/@rifen/timescope-core.svg) ![VS Code Marketplace](https://img.shields.io/vscode/rating/rifen.rifen-timescope) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 TimeScope is a cross-editor tool that eliminates mental math by hovering over numeric durations and revealing their human-readable meaning.
 
@@ -12,7 +12,7 @@ TimeScope is a cross-editor tool that eliminates mental math by hovering over nu
 
 ### VS Code
 
-Install [`rifen.timescope`](https://marketplace.visualstudio.com/items?itemName=rifen.timescope) from the VS Code Marketplace, or install the `.vsix` from [Releases](https://github.com/rifen/timescope/releases).
+Install [`rifen-timescope`](https://marketplace.visualstudio.com/items?itemName=rifen.rifen-timescope) from the VS Code Marketplace, or install the `.vsix` from [Releases](https://github.com/rifen/timescope/releases).
 
 ### Neovim (lazy.nvim)
 
@@ -167,7 +167,7 @@ Works automatically — no configuration needed. The editor's filetype is passed
 ## Links
 
 - **GitHub**: <https://github.com/rifen/timescope>
-- **VS Code Marketplace**: <https://marketplace.visualstudio.com/items?itemName=rifen.timescope>
+- **VS Code Marketplace**: <https://marketplace.visualstudio.com/items?itemName=rifen.rifen-timescope>
 
 ## License
 

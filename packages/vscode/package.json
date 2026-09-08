@@ -193,12 +193,12 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@vscode/test-electron": "^2.3.8",
+    "@vscode/vsce": "^3.0.0",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
-    "mocha": "^10.8.2",
+    "mocha": "^11.8.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
-    "@vscode/vsce": "^3.0.0"
+    "typescript": "^5.3.3"
   },
   "icon": "extension/timescope.ico"
 }

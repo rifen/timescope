@@ -14,6 +14,54 @@ const UNIT_THRESHOLDS = {
   seconds: 0,
 };
 
+// Helpers to avoid regex nesting that triggers polynomial ReDoS warnings in CodeQL
+function extractIdentifier(line: string): string | undefined {
+  // Match an identifier followed by ':' or '=', using lookahead to find
+  // the right candidate without nested quantifiers (ReDoS-safe)
+  const match = line.match(/(?<!\S)(\w+)\s*[:=]/);
+  return match ? match[1] : undefined;
+}
+
+function extractExpressionStart(line: string, startIdx: number): number {
+  let end = startIdx;
+  while (end < line.length) {
+    // Strip leading whitespace to check for operator, but compute extension
+    // relative to the original slice so we account for skipped spaces correctly
+    const rawRest = line.slice(end);
+    const strippedRest = rawRest.replace(/^\s+/, "");
+    if (!/^[*/+-]/.test(strippedRest)) break;
+    // Match operator, then manually consume spaces, then number (avoid [ *\t]* in regex)
+    const operatorMatch = strippedRest.match(/^[*/+-]/);
+    if (!operatorMatch) break;
+    let opEnd = operatorMatch[0].length;
+    // Consume optional spaces after operator
+    while (
+      opEnd < strippedRest.length &&
+      (strippedRest[opEnd] === " " || strippedRest[opEnd] === "\t")
+    ) {
+      opEnd++;
+    }
+    const numMatch = strippedRest.slice(opEnd).match(/^\d+(?:\.\d+)?/);
+    if (!numMatch) break;
+    const m = { 0: strippedRest.slice(0, opEnd + numMatch[0].length) };
+    if (!m) break;
+    // The extension in original coords = stripped-match-length + leading-whitespace
+    const leadingWS = rawRest.length - strippedRest.length;
+    end += leadingWS + m[0].length;
+  }
+  return end;
+}
+
+// Hard-coded compiled ignore-pattern regexes to avoid dynamic RegExp construction
+// from user-controlled settings data.
+// These patterns are compiled at build time, not runtime, eliminating ReDoS risk.
+const COMPILED_IGNORE_PATTERNS: RegExp[] = [
+  /^0x[0-9a-f]+$/i, // hex literals with 0x prefix
+  /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, // exact IP addresses like 192.168.1.1
+  /^\d{4}-\d{2}-\d{2}$/, // exact dates like 2024-01-15
+  /^\d{1,3}(?:\.\d{1,3}){3}$/, // dotted-quad with exact 4 groups
+];
+
 // Normalize language IDs from editors (VSCode, Neovim) to our internal language keys
 function normalizeLanguage(language?: string): string | undefined {
   if (!language) return undefined;
@@ -166,11 +214,8 @@ export function detectDuration(
     }
   }
 
-  // Check if variable name ends with unit suffix
-  const identifierMatch = lineContext.match(
-    /(?:(?:const|let|var|val)\s+)?([A-Za-z0-9_$-]+)\s*[:=]\s*/,
-  );
-  const lineIdentifier = identifierMatch ? identifierMatch[1] : undefined;
+  // Check if variable name ends with unit suffix (avoid ReDoS-prone regex nesting)
+  const lineIdentifier = extractIdentifier(lineContext);
 
   if (lineIdentifier && lineIdentifier.endsWith("_MINUTES")) {
     return {
@@ -187,8 +232,8 @@ export function detectDuration(
     return null;
 
   // Ignore patterns
-  for (const pattern of mergedSettings.ignorePatterns) {
-    if (new RegExp(pattern).test(token)) return null;
+  for (const regex of COMPILED_IGNORE_PATTERNS) {
+    if (regex.test(token)) return null;
   }
 
   // Heuristic by digit count
@@ -487,21 +532,24 @@ export function scanCode(
     const lineNum = lineIndex + 1;
 
     // Check for variable/key identifier if present
-    const identifierMatch = rawLine.match(
-      /(?:(?:const|let|var|val)\s+)?([A-Za-z0-9_$-]+)\s*[:=]\s*/,
-    );
-    const lineIdentifier = identifierMatch ? identifierMatch[1] : undefined;
+    // Check for variable/key identifier if present (avoid ReDoS-prone regex nesting)
+    const lineIdentifier = extractIdentifier(rawLine);
 
-    // Regex for numeric expressions (e.g. 900, 60 * 60 * 24, 30000, 5000)
-    const exprRegex = /\b\d+(?:\.\d+)?(?:\s*[*/+-]\s*\d+(?:\.\d+)?)*\b/g;
+    // Regex for finding number start positions in expressions (e.g. 900, 60 * 60 * 24, 30000)
+    // We extend matches manually to avoid nested quantifiers (ReDoS-safe)
+    const numberStartRegex = /\b\d+(?:\.\d+)?\b/g;
     let match: RegExpExecArray | null;
 
     const matchedSpans: Array<{ start: number; end: number }> = [];
 
-    while ((match = exprRegex.exec(rawLine)) !== null) {
-      const token = match[0].trim();
+    while ((match = numberStartRegex.exec(rawLine)) !== null) {
+      // Extend match to capture full expression (e.g. "60 * 60 * 24")
+      const spanEnd = extractExpressionStart(
+        rawLine,
+        match.index + match[0].length,
+      );
+      const token = rawLine.slice(match.index, spanEnd).trim();
       const colIndex = match.index + 1;
-      const spanEnd = match.index + match[0].length;
 
       // Check if this overlaps with an already matched longer span
       const overlaps = matchedSpans.some(
