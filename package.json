@@ -16,8 +16,10 @@
     "package:nvim": "pnpm --filter timelens-nvim run build"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "@vscode/vsce": "^3.0.0"
+    "@vscode/vsce": "^3.0.0",
+    "mocha": "^11.8.0",
+    "serialize-javascript": "^7.1.1",
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=20.0.0",
