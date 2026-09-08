@@ -12,9 +12,11 @@ const UNITS = [
 
 export function toMilliseconds(
   value: number,
-  unit: "seconds" | "milliseconds" | "microseconds" | "nanoseconds",
+  unit: "seconds" | "minutes" | "milliseconds" | "microseconds" | "nanoseconds",
 ): number {
   switch (unit) {
+    case "minutes":
+      return value * 60 * 1000;
     case "seconds":
       return value * 1000;
     case "milliseconds":
@@ -46,7 +48,7 @@ export function formatDuration(ms: number, options: FormatOptions): string {
 
 export function formatDurationFull(
   value: number,
-  unit: "seconds" | "milliseconds" | "microseconds" | "nanoseconds",
+  unit: "seconds" | "minutes" | "milliseconds" | "microseconds" | "nanoseconds",
   options: FormatOptions,
 ): string {
   const ms = toMilliseconds(value, unit);

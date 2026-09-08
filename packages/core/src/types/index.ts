@@ -13,6 +13,8 @@ export interface TimeScopeSettings {
   contextClues: boolean;
   ignorePatterns: string[];
   keywords: string[];
+  // Language-specific keyword overrides
+  languageOverrides?: Record<string, string[]>;
 }
 
 export const DEFAULT_SETTINGS: TimeScopeSettings = {
@@ -55,7 +57,7 @@ export const DEFAULT_SETTINGS: TimeScopeSettings = {
 
 export interface DetectedDuration {
   value: number;
-  unit: "seconds" | "milliseconds" | "microseconds" | "nanoseconds";
+  unit: "seconds" | "milliseconds" | "microseconds" | "nanoseconds" | "minutes";
   confidence: number;
   source: "heuristic" | "context";
   contextHint?: string;

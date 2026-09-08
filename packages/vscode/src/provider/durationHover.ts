@@ -40,7 +40,8 @@ export class DurationHoverProvider implements vscode.HoverProvider {
     const sanitized = this.stripComments(token).trim();
     this.log("sanitized token", sanitized);
 
-    const duration = detectDuration(sanitized, lineText, settings);
+    const language = document.languageId;
+    const duration = detectDuration(sanitized, lineText, settings, language);
     if (!duration) {
       this.log("no detection result");
       return null;

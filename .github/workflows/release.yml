@@ -15,12 +15,12 @@ jobs:
     outputs:
       core_version: ${{ steps.core-version.outputs.new_version }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
         with:
           node-version: 22.x
           check-latest: true
@@ -29,7 +29,7 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
 
       - name: Install dependencies
         run: pnpm install --filter @rifen/timescope-core --ignore-scripts --frozen-lockfile
@@ -62,4 +62,3 @@ jobs:
       - name: Publish to npm
         run: npm publish --provenance --access public
         working-directory: packages/core
-

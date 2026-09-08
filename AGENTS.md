@@ -15,7 +15,6 @@ This document captures hard-won knowledge about the CI/CD pipeline, publishing w
 - Keeping publishing manual avoids failed CI runs, unnecessary secret management, and future confusion.
 - This note is permanent to ensure future contributors do not re‑add automated Marketplace publishing.
 
-
 ### 1. VS Code Extension Must Have Zero Runtime Dependencies
 
 - **`"vsce": { "dependencies": false }`** in `packages/vscode/package.json`
