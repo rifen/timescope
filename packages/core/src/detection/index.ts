@@ -14,6 +14,15 @@ const UNIT_THRESHOLDS = {
   seconds: 0,
 };
 
+// Hard-coded compiled ignore-pattern regexes to avoid dynamic RegExp construction
+// from user-controlled settings data.
+const COMPILED_IGNORE_PATTERNS: RegExp[] = [
+  /^0x[0-9a-f]+$/i,
+  /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
+  /^\d{4}-\d{2}-\d{2}$/,
+  /^\d{1,3}(?:\.\d{1,3}){3}$/,
+];
+
 // Normalize language IDs from editors (VSCode, Neovim) to our internal language keys
 function normalizeLanguage(language?: string): string | undefined {
   if (!language) return undefined;
@@ -187,8 +196,8 @@ export function detectDuration(
     return null;
 
   // Ignore patterns
-  for (const pattern of mergedSettings.ignorePatterns) {
-    if (new RegExp(pattern).test(token)) return null;
+  for (const regex of COMPILED_IGNORE_PATTERNS) {
+    if (regex.test(token)) return null;
   }
 
   // Heuristic by digit count
