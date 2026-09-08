@@ -5,7 +5,7 @@
   "version": "0.2.4",
   "publisher": "rifen",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.136.0"
   },
   "categories": [
     "Other"
