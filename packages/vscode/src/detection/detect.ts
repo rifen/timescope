@@ -1,25 +1,39 @@
-import * as vscode from 'vscode';
-import { getSettings } from '../config/settings';
+import * as vscode from "vscode";
+import { getSettings } from "../config/settings";
 
 export interface DetectedDuration {
   value: number;
-  unit: 'seconds' | 'milliseconds' | 'microseconds' | 'nanoseconds';
+  unit:
+    | "seconds"
+    | "milliseconds"
+    | "microseconds"
+    | "nanoseconds"
+    | "hours"
+    | "days"
+    | "weeks"
+    | "months"
+    | "years";
   confidence: number; // 0-1
-  source: 'heuristic' | 'context';
+  source: "heuristic" | "context";
   contextHint?: string; // what triggered the inference
 }
 
 const UNIT_THRESHOLDS = {
-  nanoseconds: 1e15,    // > 1e15 ns (15+ digits) → likely ns
-  microseconds: 1e12,  // > 1e12 µs (13+ digits) → likely µs
-  milliseconds: 1e9,   // > 1e9 ms (10+ digits) → likely ms
-  seconds: 0           // otherwise seconds
+  nanoseconds: 1e15, // > 1e15 ns (15+ digits) → likely ns
+  microseconds: 1e12, // > 1e12 µs (13+ digits) → likely µs
+  milliseconds: 1e9, // > 1e9 ms (10+ digits) → likely ms
+  seconds: 0, // otherwise seconds
+  hours: 0, // only via context/defaultUnit
+  days: 0,
+  weeks: 0,
+  months: 0,
+  years: 0,
 };
 
 export function detectDuration(
   token: string,
   document: vscode.TextDocument,
-  position: vscode.Position
+  position: vscode.Position,
 ): DetectedDuration | null {
   const settings = getSettings();
 
@@ -42,29 +56,33 @@ export function detectDuration(
     }
   }
 
-  // Check ignore patterns (only if no strong context signal)
-  for (const pattern of settings.ignorePatterns) {
-    if (new RegExp(pattern).test(token)) return null;
-  }
-
   // Determine base unit from heuristics / defaultUnit
-  let unit: 'seconds' | 'milliseconds' | 'microseconds' | 'nanoseconds';
+  let unit:
+    | "seconds"
+    | "milliseconds"
+    | "microseconds"
+    | "nanoseconds"
+    | "hours"
+    | "days"
+    | "weeks"
+    | "months"
+    | "years";
   let confidence = 0.5;
-  let source: 'heuristic' | 'context' = 'heuristic';
+  let source: "heuristic" | "context" = "heuristic";
 
-  if (settings.defaultUnit === 'auto') {
+  if (settings.defaultUnit === "auto") {
     // Heuristic by digit count
     if (value >= UNIT_THRESHOLDS.nanoseconds) {
-      unit = 'nanoseconds';
+      unit = "nanoseconds";
       confidence = 0.9;
     } else if (value >= UNIT_THRESHOLDS.microseconds) {
-      unit = 'microseconds';
+      unit = "microseconds";
       confidence = 0.9;
     } else if (value >= UNIT_THRESHOLDS.milliseconds) {
-      unit = 'milliseconds';
+      unit = "milliseconds";
       confidence = 0.9;
     } else {
-      unit = 'seconds';
+      unit = "seconds";
       confidence = 0.7;
     }
   } else {
@@ -80,7 +98,7 @@ export function detectDuration(
       if (contextResult.confidence >= confidence) {
         unit = contextResult.unit;
         confidence = contextResult.confidence;
-        source = 'context';
+        source = "context";
       }
     }
   }
@@ -92,13 +110,13 @@ function inferFromContext(
   token: string,
   document: vscode.TextDocument,
   position: vscode.Position,
-  _settings: unknown
+  _settings: unknown,
 ): DetectedDuration | null {
   const line = document.getText(
     new vscode.Range(
       new vscode.Position(position.line, 0),
-      new vscode.Position(position.line, position.character + 100)
-    )
+      new vscode.Position(position.line, position.character + 100),
+    ),
   );
 
   // Split on whitespace + operators, but KEEP underscores inside identifiers
@@ -106,7 +124,7 @@ function inferFromContext(
   const tokens = line.split(/[\s=*+/\-()]+/).filter(Boolean);
 
   // Find the token at or near the cursor position
-  const tokenIndex = tokens.findIndex(t => t === token);
+  const tokenIndex = tokens.findIndex((t) => t === token);
   if (tokenIndex === -1) return null;
 
   // Check surrounding tokens (±2) for keywords / unit hints
@@ -114,36 +132,154 @@ function inferFromContext(
   const contextEnd = Math.min(tokens.length, tokenIndex + 3);
   const contextTokens = tokens.slice(contextStart, contextEnd);
 
-  let bestUnit: 'seconds' | 'milliseconds' | 'microseconds' | 'nanoseconds' | null = null;
+  let bestUnit:
+    | "seconds"
+    | "milliseconds"
+    | "microseconds"
+    | "nanoseconds"
+    | "hours"
+    | "days"
+    | "weeks"
+    | "months"
+    | "years"
+    | null = null;
   let bestConfidence = 0;
-  let bestHint = '';
+  let bestHint = "";
 
   for (const t of contextTokens) {
     const lower = t.toLowerCase();
 
     // Check config-file context first (YAML, nginx, etc. → seconds)
-    const fileName = document.uri.path.split('/').pop() || '';
-    const fileExt = fileName.includes('.') ? fileName.split('.').pop() || '' : '';
-    const configExtensions = ['yml', 'yaml', 'toml', 'conf', 'ini', 'json'];
+    const fileName = document.uri.path.split("/").pop() || "";
+    const fileExt = fileName.includes(".")
+      ? fileName.split(".").pop() || ""
+      : "";
+    const configExtensions = ["yml", "yaml", "toml", "conf", "ini", "json"];
     if (configExtensions.includes(fileExt) && !bestUnit) {
-      bestUnit = 'seconds';
+      bestUnit = "seconds";
       bestConfidence = Math.max(bestConfidence, 0.75);
       bestHint = `file context: ${fileExt}`;
     }
 
     // Direct unit abbreviations in variable name: NANOS, DURATION_NS, MS, US, NS
     // Match as whole word OR underscore-separated suffix (e.g. DURATION_NS)
-    if (/\bns\b/i.test(lower) || /(?:^|_)ns$/i.test(lower) || /nano(?:s)?$/i.test(lower)) {
-      return { value: parseInt(token, 10), unit: 'nanoseconds', confidence: 0.95, source: 'context', contextHint: `unit suffix: "${t}"` };
+    if (
+      /\bns\b/i.test(lower) ||
+      /(?:^|_)ns$/i.test(lower) ||
+      /nano(?:s)?$/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "nanoseconds",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
     }
-    if (/\bus\b/i.test(lower) || /(?:^|_)us$/i.test(lower) || /micro(?:s)?$/i.test(lower)) {
-      return { value: parseInt(token, 10), unit: 'microseconds', confidence: 0.95, source: 'context', contextHint: `unit suffix: "${t}"` };
+    if (
+      /\bus\b/i.test(lower) ||
+      /(?:^|_)us$/i.test(lower) ||
+      /micro(?:s)?$/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "microseconds",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
     }
-    if (/\bms\b/i.test(lower) || /(?:^|_)ms$/i.test(lower) || /milli(?:s)?$/i.test(lower)) {
-      return { value: parseInt(token, 10), unit: 'milliseconds', confidence: 0.95, source: 'context', contextHint: `unit suffix: "${t}"` };
+    if (
+      /\bms\b/i.test(lower) ||
+      /(?:^|_)ms$/i.test(lower) ||
+      /milli(?:s)?$/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "milliseconds",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
     }
-    if (/\bsec(?:s)?\b/i.test(lower) || /(?:^|_)sec(?:s)?$/i.test(lower) || /second(?:s)?$/i.test(lower)) {
-      return { value: parseInt(token, 10), unit: 'seconds', confidence: 0.95, source: 'context', contextHint: `unit suffix: "${t}"` };
+    if (
+      /\bsec(?:s)?\b/i.test(lower) ||
+      /(?:^|_)sec(?:s)?$/i.test(lower) ||
+      /second(?:s)?$/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "seconds",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bh(?:r|our)s?\b/i.test(lower) ||
+      /(?:^|_)h(?:r)?$/i.test(lower) ||
+      /hour/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "hours",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bd(?:ay)?s?\b/i.test(lower) ||
+      /(?:^|_)d$/i.test(lower) ||
+      /day/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "days",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bw(?:k|eek)s?\b/i.test(lower) ||
+      /(?:^|_)w(?:k)?$/i.test(lower) ||
+      /week/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "weeks",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bmo(?:nth)?s?\b/i.test(lower) ||
+      /(?:^|_)mo$/i.test(lower) ||
+      /month/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "months",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\by(?:r|ear)?s?\b/i.test(lower) ||
+      /(?:^|_)y(?:r)?$/i.test(lower) ||
+      /year/i.test(lower) ||
+      /annual/i.test(lower)
+    ) {
+      return {
+        value: parseInt(token, 10),
+        unit: "years",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
     }
 
     // Semantic keywords → infer likely unit
@@ -153,7 +289,8 @@ function inferFromContext(
       if (confidence > bestConfidence) {
         bestUnit = unitFromKeyword;
         bestConfidence = confidence;
-        bestHint = confidence >= 0.85 ? `keyword: "${t}"` : `keyword: "${t}" (weak)`;
+        bestHint =
+          confidence >= 0.85 ? `keyword: "${t}"` : `keyword: "${t}" (weak)`;
       }
     }
   }
@@ -163,8 +300,8 @@ function inferFromContext(
       value: parseInt(token, 10),
       unit: bestUnit,
       confidence: bestConfidence,
-      source: 'context',
-      contextHint: bestHint
+      source: "context",
+      contextHint: bestHint,
     };
   }
 
@@ -172,42 +309,64 @@ function inferFromContext(
 }
 
 // Returns the most likely unit for a keyword match
-function inferUnitFromKeyword(word: string): 'seconds' | 'milliseconds' | 'microseconds' | 'nanoseconds' | null {
+function inferUnitFromKeyword(
+  word: string,
+):
+  | "seconds"
+  | "milliseconds"
+  | "microseconds"
+  | "nanoseconds"
+  | "hours"
+  | "days"
+  | "weeks"
+  | "months"
+  | "years"
+  | null {
   // Explicit unit abbreviations
-  if (/\bms\b/.test(word) || /millisecond/.test(word)) return 'milliseconds';
-  if (/\bus\b/.test(word) || /microsecond/.test(word)) return 'microseconds';
-  if (/\bns\b/.test(word) || /nanosecond/.test(word)) return 'nanoseconds';
+  if (/\bms\b/.test(word) || /millisecond/.test(word)) return "milliseconds";
+  if (/\bus\b/.test(word) || /microsecond/.test(word)) return "microseconds";
+  if (/\bns\b/.test(word) || /nanosecond/.test(word)) return "nanoseconds";
+  if (/\bh(?:r|our)s?\b/.test(word) || /hour/.test(word)) return "hours";
+  if (/\bd(?:ay)?s?\b/.test(word) || /day/.test(word)) return "days";
+  if (/\bw(?:k|eek)s?\b/.test(word) || /week/.test(word)) return "weeks";
+  if (/\bmo(?:nth)?s?\b/.test(word) || /month/.test(word)) return "months";
+  if (
+    /\by(?:r|ear)?s?\b/.test(word) ||
+    /year/.test(word) ||
+    /annual/.test(word)
+  )
+    return "years";
 
   // Short-duration operations → usually milliseconds
   if (
-    word.includes('retry') ||
-    word.includes('backoff') ||
-    word.includes('delay') ||
-    word.includes('wait') ||
-    word.includes('sleep') ||
-    word.includes('pause') ||
-    word.includes('hold') ||
-    word.includes('throttle') ||
-    word.includes('rate')
+    word.includes("retry") ||
+    word.includes("backoff") ||
+    word.includes("delay") ||
+    word.includes("wait") ||
+    word.includes("sleep") ||
+    word.includes("pause") ||
+    word.includes("hold") ||
+    word.includes("throttle") ||
+    word.includes("rate")
   ) {
-    return 'milliseconds';
+    return "milliseconds";
   }
 
   // Timeouts, TTLs, intervals, sessions → usually seconds
   if (
-    word.includes('timeout') ||
-    word.includes('ttl') ||
-    word.includes('interval') ||
-    word.includes('duration') ||
-    word.includes('expiry') ||
-    word.includes('expire') ||
-    word.includes('retention') ||
-    word.includes('age') ||
-    word.includes('period') ||
-    word.includes('cache') ||
-    word.includes('session')
+    word.includes("timeout") ||
+    word.includes("ttl") ||
+    word.includes("interval") ||
+    word.includes("duration") ||
+    word.includes("expiry") ||
+    word.includes("expire") ||
+    word.includes("retention") ||
+    word.includes("age") ||
+    word.includes("period") ||
+    word.includes("cache") ||
+    word.includes("session")
   ) {
-    return 'seconds';
+    return "seconds";
   }
 
   return null;
@@ -216,8 +375,30 @@ function inferUnitFromKeyword(word: string): 'seconds' | 'milliseconds' | 'micro
 // Higher confidence for more specific keywords
 function keywordConfidence(word: string): number {
   // Very specific words → higher confidence
-  const highConfidence = ['retry', 'backoff', 'timeout', 'ttl', 'interval', 'delay', 'sleep'];
-  const mediumConfidence = ['duration', 'expiry', 'expire', 'retention', 'throttle', 'wait', 'pause', 'hold', 'cache', 'session', 'age', 'period', 'rate'];
+  const highConfidence = [
+    "retry",
+    "backoff",
+    "timeout",
+    "ttl",
+    "interval",
+    "delay",
+    "sleep",
+  ];
+  const mediumConfidence = [
+    "duration",
+    "expiry",
+    "expire",
+    "retention",
+    "throttle",
+    "wait",
+    "pause",
+    "hold",
+    "cache",
+    "session",
+    "age",
+    "period",
+    "rate",
+  ];
 
   for (const kw of highConfidence) {
     if (word.includes(kw)) return 0.85;
