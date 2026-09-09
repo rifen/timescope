@@ -13,13 +13,14 @@ Instead of publishing and installing the extension every time, use this quick te
 
 This will:
 
-1. Open VS Code with a test file (`test-data/sample.ts`)
-2. Print instructions for testing
+1. Build the extension if not already built
+2. Open VS Code with the **extension workspace** (`packages/vscode`) and test file (`test-data/sample.ts`)
+3. Print instructions for testing
 
 **Then in VS Code:**
 
 1. Press **F5** to launch "Extension Development Host"
-2. In the new window, open the test file: `test-data/sample.ts`
+2. The test file opens automatically in the new window
 3. Hover over any number to see TimeScope in action
 
 ### 2. Test File Overview
@@ -28,21 +29,21 @@ The `test-data/sample.ts` file contains:
 
 | Case | Example | Expected Result |
 | ------ | --------- | ---------------- |
-| Basic seconds | `HELLO = 120` | `2 minutes` |
-| Context: timeout | `TIMEOUT = 300` | `5 minutes` |
-| Context: delay | `DELAY = 5000` | `5 seconds` |
-| Context: retry | `RETRY_INTERVAL = 30000` | `30 seconds` |
-| Context: cache | `CACHE_TTL = 3600` | `1 hour` |
-| Context: age | `MAX_AGE = 86400` | `1 day` |
-| With ms suffix | `retryDelayMs = 5000` | `5 seconds` |
-| With seconds suffix | `timeoutSeconds = 120` | `2 minutes` |
-| With hours suffix | `cacheDurationHours = 48` | `2 days` |
-| Expressions | `ONE_HOUR = 60 * 60` | `1 hour` |
-| New: hours | `HOURS = 24` | `1 day` |
-| New: days | `DAYS = 7` | `1 week` |
-| New: weeks | `WEEKS = 2` | `2 weeks` |
-| New: months | `MONTHS = 3` | `3 months` |
-| New: years | `YEARS = 1` | `1 year` |
+| Basic seconds | `HELLO = 120` | `2m` |
+| Context: timeout | `TIMEOUT = 300` | `5m` |
+| Context: delay | `DELAY = 5000` | `5s` |
+| Context: retry | `RETRY_INTERVAL = 30000` | `30s` |
+| Context: cache | `CACHE_TTL = 3600` | `1h` |
+| Context: age | `MAX_AGE = 86400` | `1d` |
+| With ms suffix | `retryDelayMs = 5000` | `5s` |
+| With seconds suffix | `timeoutSeconds = 120` | `2m` |
+| With hours suffix | `cacheDurationHours = 48` | `2d` |
+| Expressions | `ONE_HOUR_SECONDS = 60 * 60` | `1h` |
+| New: hours | `VALUE_HOURS = 24` | `1d` |
+| New: days | `VALUE_DAYS = 7` | `1w` |
+| New: weeks | `VALUE_WEEKS = 2` | `2w` |
+| New: months | `VALUE_MONTHS = 3` | `3mo` |
+| New: years | `VALUE_YEARS = 1` | `12mo 5d` |
 | Edge: zero | `ZERO = 0` | No hover (minValue = 1) |
 | Edge: large | `VERY_LARGE = 9999999999999` | No hover (maxValue) |
 | Edge: hex | `HEX = 0xFF` | No hover (ignore pattern) |
