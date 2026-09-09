@@ -23,6 +23,11 @@ Just hover—no clicks, no commands, no context switching.
 | **Milliseconds** | `3600000` | `1 hour` |
 | **Microseconds** | `5000000` | `5 seconds` |
 | **Nanoseconds** | `5000000000` | `5 seconds` |
+| **Hours** | `24` | `1 day` |
+| **Days** | `7` | `1 week` |
+| **Weeks** | `2` | `2 weeks` |
+| **Months** | `3` | `3 months` |
+| **Years** | `1` | `1 year` |
 
 - **Smart unit detection** — Heuristics + context clues (variable names, comments, file type) infer seconds/ms/µs/ns
 - **Best-fit output** — Automatically picks the largest whole unit (e.g., `90000` → `25 hours`, not `54000 minutes`)
@@ -65,10 +70,10 @@ interval: 3600000             # → "1 hour"
 
 ```bash
 # From VSIX (install from /tmp or download)
-code --install-extension timelens-vscode-0.1.1.vsix
+code --install-extension timescope-vscode-0.2.4.vsix
 
 # Or from VS Code Marketplace (after publication)
-# Extension ID: rifen.timelens
+# Extension ID: rifen.rifen-timescope
 ```
 
 ---
@@ -78,27 +83,13 @@ code --install-extension timelens-vscode-0.1.1.vsix
 ```json
 // settings.json
 {
-  "timelens.enabled": true,
-  "timelens.defaultUnit": "seconds",     // "seconds" | "milliseconds" | "microseconds" | "nanoseconds" | "auto"
-  "timelens.format": "compact",          // "compact" | "verbose" | "both"
-  "timelens.minValue": 1,                // Ignore values below this
-  "timelens.maxValue": 31557600000,      // Ignore values above this (~1000 years in ms)
-  "timelens.showBreakdown": true,        // Show "1h 30m 45s" for non-round numbers
-  "timelens.showUnitLabel": true,        // Show "seconds", "ms" in hover
-  "timelens.contextClues": true,         // Use var names, comments, file type to infer unit
-  "timelens.ignorePatterns": [           // Regex patterns to skip
-    "^0x[0-9a-f]+$",                     // Hex colors, addresses
-    "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",  // IPv4
-    "^\\d{4}-\\d{2}-\\d{2}$",            // ISO dates
-    "^\\d{10,}$"                         // Unix timestamps (epoch) - different tool
-  ],
-  "timelens.fileTypes": ["*"],           // Glob patterns to activate on
-  "timelens.keywords": [                 // Variable name hints for unit inference
-    "timeout", "interval", "delay", "duration", "ttl",
-    "expiry", "expire", "retention", "age", "period",
-    "rate", "throttle", "backoff", "retry", "wait",
-    "sleep", "pause", "hold", "cache", "session"
-  ]
+  "timescope.enabled": true,
+  "timescope.defaultUnit": "auto",          // "seconds" | "milliseconds" | "microseconds" | "nanoseconds" | "hours" | "days" | "weeks" | "months" | "years" | "auto"
+  "timescope.format": "compact",            // "compact" | "verbose" | "both"
+  "timescope.minValue": 1,                  // Ignore values below this
+  "timescope.maxValue": 31557600000,        // Ignore values above this (~1000 years in ms)
+  "timescope.contextClues": true,           // Use var names, comments, file type to infer unit
+  "timescope.fileTypes": ["*"]              // Glob patterns to activate on
 }
 ```
 
@@ -153,8 +144,8 @@ vsce publish
 ## 🤝 Related
 
 - **[TimeScope Core](https://github.com/rifen/timescope-core)** — Shared detection/formatting logic (`@rifen/timescope-core`)
-- **[TimeScope Neovim](https://github.com/rifen/timelens-nvim)** — Same functionality for Neovim
-- **[Monorepo](https://github.com/rifen/timelens-mono)** — All packages in one repo
+- **[TimeScope Neovim](https://github.com/rifen/timescope-nvim)** — Same functionality for Neovim
+- **[Monorepo](https://github.com/rifen/timescope)** — All packages in one repo
 
 ---
 
