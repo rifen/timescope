@@ -2,7 +2,7 @@
   "name": "rifen-timescope",
   "displayName": "TimeScope",
   "description": "Hover any integer duration → see human-readable time instantly. TimeScope converts raw numbers into meaningful durations for VS Code.",
-  "version": "0.2.25",
+  "version": "0.2.26",
   "publisher": "rifen",
   "engines": {
     "vscode": "^1.136.0"
