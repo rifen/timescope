@@ -17,10 +17,10 @@ npm install @rifen/timescope-core
 
 ## Monorepo
 
-This package is part of the [TimeScope Monorepo](https://github.com/rifen/timelens-mono):
+This package is part of the [TimeScope Monorepo](https://github.com/rifen/timescope):
 
 ```bash
-git clone https://github.com/rifen/timelens-mono.git
+git clone https://github.com/rifen/timescope.git
 cd timescope/packages/core
 pnpm install
 pnpm build
@@ -36,9 +36,7 @@ import { detectDuration, formatDurationFull } from '@rifen/timescope-core';
 const result = detectDuration('900', 'TIMEOUT_SECONDS = 900');
 if (result) {
   console.log(formatDurationFull(result.value, result.unit, {
-    format: 'compact',
-    showBreakdown: true,
-    showUnitLabel: true
+    format: 'compact'
   }));
   // Output: "15m"
 }
@@ -82,9 +80,9 @@ npx @rifen/timescope-core parse "60 * 60 * 24"
 
 ## Integration
 
-- **[VS Code Extension](https://github.com/rifen/timelens-mono#readme)** — Hover provider
-- **[Neovim Plugin](https://github.com/rifen/timelens-nvim)** — Bridge-based hover
-- **[Agent Skills](https://github.com/rifen/timelens-mono/skills)** — Pi/Antigravity/Claude Code
+- **[VS Code Extension](https://github.com/rifen/timescope#readme)** — Hover provider
+- **[Neovim Plugin](https://github.com/rifen/timescope-nvim)** — Bridge-based hover
+- **[Agent Skills](https://github.com/rifen/timescope/skills)** — Pi/Antigravity/Claude Code
 
 ## API Reference
 

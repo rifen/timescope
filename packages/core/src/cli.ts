@@ -118,18 +118,38 @@ function parseArgs(args: string[]): {
     }
 
     if (arg.startsWith("--unit=")) {
-      const u = arg.split("=")[1] as TimeScopeSettings["defaultUnit"];
-      settings.defaultUnit = u;
+      const u = arg.split("=")[1];
+      if (!["seconds", "milliseconds", "auto"].includes(u)) {
+        console.error(
+          `Invalid unit: ${u}. Must be one of: seconds, milliseconds, auto`,
+        );
+        process.exit(1);
+      }
+      settings.defaultUnit = u as TimeScopeSettings["defaultUnit"];
       continue;
     }
 
     if (arg.startsWith("--min=")) {
-      settings.minValue = Number(arg.split("=")[1]);
+      const minVal = Number(arg.split("=")[1]);
+      if (!Number.isFinite(minVal)) {
+        console.error(
+          `Invalid minimum value: ${arg.split("=")[1]}. Must be a number.`,
+        );
+        process.exit(1);
+      }
+      settings.minValue = minVal;
       continue;
     }
 
     if (arg.startsWith("--max=")) {
-      settings.maxValue = Number(arg.split("=")[1]);
+      const maxVal = Number(arg.split("=")[1]);
+      if (!Number.isFinite(maxVal)) {
+        console.error(
+          `Invalid maximum value: ${arg.split("=")[1]}. Must be a number.`,
+        );
+        process.exit(1);
+      }
+      settings.maxValue = maxVal;
       continue;
     }
 
@@ -197,24 +217,25 @@ export function runCLI(): void {
 
     const formatted = formatDurationFull(detected.value, detected.unit, {
       format: "verbose",
-      showBreakdown: true,
-      showUnitLabel: true,
     });
     const compact = formatDurationFull(detected.value, detected.unit, {
       format: "compact",
-      showBreakdown: true,
-      showUnitLabel: true,
     });
 
     if (format === "json") {
+      // eslint-disable-next-line no-console
       console.log(JSON.stringify({ ...detected, formatted, compact }, null, 2));
     } else {
+      // eslint-disable-next-line no-console
       console.log(`Value:      ${detected.value} ${detected.unit}`);
+      // eslint-disable-next-line no-console
       console.log(`Formatted:  ${formatted} (${compact})`);
+      // eslint-disable-next-line no-console
       console.log(
         `Confidence: ${(detected.confidence * 100).toFixed(0)}% (${detected.source})`,
       );
       if (detected.contextHint)
+        // eslint-disable-next-line no-console
         console.log(`Hint:       ${detected.contextHint}`);
     }
     return;
@@ -228,6 +249,7 @@ export function runCLI(): void {
 
     const files = collectFiles(target);
     const allResults: ScanResult[] = [];
+    let skippedFiles = 0;
 
     for (const file of files) {
       try {
@@ -236,27 +258,32 @@ export function runCLI(): void {
         if (scan.items.length > 0) {
           allResults.push(scan);
         }
-      } catch (_) {
-        // Skip unreadable files
+      } catch {
+        skippedFiles++;
       }
     }
 
     if (format === "json") {
-      console.log(JSON.stringify(allResults, null, 2));
+      console.log(
+        JSON.stringify({ results: allResults, skipped: skippedFiles }, null, 2),
+      );
     } else {
       let totalDetections = 0;
       for (const res of allResults) {
+        // eslint-disable-next-line no-console
         console.log(`\n📄 ${res.filePath} (${res.items.length} durations):`);
         for (const item of res.items) {
           const id = item.identifier ? `[${item.identifier}] ` : "";
+          // eslint-disable-next-line no-console
           console.log(
             `  Line ${item.line}:${item.column} -> ${id}"${item.token}" = ${item.formatted} (${item.unit}, ${(item.confidence * 100).toFixed(0)}% conf)`,
           );
         }
         totalDetections += res.items.length;
       }
+      // eslint-disable-next-line no-console
       console.log(
-        `\nScan completed: ${totalDetections} durations found across ${allResults.length} files.`,
+        `\nScan completed: ${totalDetections} durations found across ${allResults.length} files.${skippedFiles > 0 ? ` (${skippedFiles} skipped)` : ""}`,
       );
     }
   }

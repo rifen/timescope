@@ -315,8 +315,6 @@ describe("Automated Hover Tests", () => {
               duration.unit,
               {
                 format: settings.format,
-                showBreakdown: settings.showBreakdown,
-                showUnitLabel: settings.showUnitLabel,
               },
             );
 

@@ -7,12 +7,9 @@ describe("detectDuration - extensive edge cases", () => {
     ...DEFAULT_SETTINGS,
     minValue: 0,
     maxValue: Number.MAX_SAFE_INTEGER,
-    ignorePatterns: [],
     contextClues: false,
     defaultUnit: "auto",
     format: "compact",
-    showBreakdown: true,
-    showUnitLabel: true,
   };
 
   test("auto unit selection based on magnitude", () => {
@@ -52,9 +49,100 @@ describe("detectDuration - extensive edge cases", () => {
     expect(result!.unit).toBe("milliseconds");
   });
 
+  test("context clues detect _YEARS suffix", () => {
+    const result = detectDuration("5", "const ttl_years = 5", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("years");
+  });
+
+  test("context clues detect _MONTHS suffix", () => {
+    const result = detectDuration("3", "const retention_months = 3", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("months");
+  });
+
+  test("context clues detect _WEEKS suffix", () => {
+    const result = detectDuration("2", "const cycle_weeks = 2", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("weeks");
+  });
+
+  test("context clues detect _DAYS suffix", () => {
+    const result = detectDuration("7", "const period_days = 7", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("days");
+  });
+
+  test("context clues detect _HOURS suffix", () => {
+    const result = detectDuration("24", "const duration_hours = 24", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("hours");
+  });
+
+  test("context clues detect camelCase year suffix", () => {
+    const result = detectDuration("10", "const ttlYear = 10", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("years");
+  });
+
+  test("context clues detect camelCase day suffix", () => {
+    const result = detectDuration("30", "const ttlDay = 30", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("days");
+  });
+
+  test("context clues detect camelCase hour suffix", () => {
+    const result = detectDuration("48", "const ttlHour = 48", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("hours");
+  });
+
+  test("context clues detect camelCase month suffix", () => {
+    const result = detectDuration("6", "const ttlMonth = 6", {
+      ...baseSettings,
+      contextClues: true,
+      defaultUnit: "auto" as const,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.unit).toBe("months");
+  });
+
   test("ignore patterns prevent detection", () => {
-    const settings = { ...baseSettings, ignorePatterns: ["^0x[0-9a-f]+$"] };
-    expect(detectDuration("0xFF", "line", settings)).toBeNull();
+    // ignorePatterns is now hardcoded in COMPILED_IGNORE_PATTERNS
+    // Test hex pattern
+    expect(detectDuration("0xFF", "line", baseSettings)).toBeNull();
   });
 
   test("min/max threshold enforcement", () => {
@@ -88,12 +176,9 @@ describe("detectDuration - language-specific keyword overrides", () => {
     ...DEFAULT_SETTINGS,
     minValue: 0,
     maxValue: Number.MAX_SAFE_INTEGER,
-    ignorePatterns: [],
     contextClues: true, // Language overrides require contextClues to be enabled
     defaultUnit: "auto",
     format: "compact",
-    showBreakdown: true,
-    showUnitLabel: true,
   };
 
   test("JavaScript setTimeout maps to milliseconds", () => {

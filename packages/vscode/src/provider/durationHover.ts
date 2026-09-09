@@ -49,8 +49,6 @@ export class DurationHoverProvider implements vscode.HoverProvider {
 
     const formatted = formatDurationFull(duration.value, duration.unit, {
       format: settings.format,
-      showBreakdown: settings.showBreakdown,
-      showUnitLabel: settings.showUnitLabel,
     });
 
     const lines = [formatted];
@@ -69,7 +67,7 @@ export class DurationHoverProvider implements vscode.HoverProvider {
     this.log("extractCandidate", { line, charPos });
 
     const assignmentMatch = line.match(
-      /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/,
+      /^(\s*)(?:(const|let|var|val|final)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/,
     );
     if (assignmentMatch) {
       const [, leading, varName, expression] = assignmentMatch;
@@ -102,8 +100,10 @@ export class DurationHoverProvider implements vscode.HoverProvider {
 
       if (charPos >= exprStart && charPos <= exprStart + expression.length) {
         this.log("cursor on expression");
+        // Strip trailing ; or , from the captured expression
+        const expr = expression.replace(/\s*[;,]\s*$/, "");
         return {
-          token: expression.trim(),
+          token: expr.trim(),
           range: new vscode.Range(
             new vscode.Position(lineNum, exprStart),
             new vscode.Position(lineNum, exprStart + expression.length),
@@ -190,6 +190,7 @@ export class DurationHoverProvider implements vscode.HoverProvider {
     let start = wordStart;
     let end = wordEnd;
 
+    // Expand backward
     for (; start > 0; ) {
       const char = line[start - 1];
       if (/\s/.test(char)) {
@@ -208,6 +209,7 @@ export class DurationHoverProvider implements vscode.HoverProvider {
       break;
     }
 
+    // Expand forward
     for (; end < line.length; ) {
       const char = line[end];
       if (/\s/.test(char)) {

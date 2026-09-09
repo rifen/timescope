@@ -13,7 +13,7 @@ import {
   DEFAULT_SETTINGS,
   type TimeScopeSettings,
 } from "@rifen/timescope-core";
-import * as readline from "readline";
+import * as readline from "node:readline";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -31,16 +31,8 @@ rl.on("line", (line: string) => {
 
     if (result) {
       const formatOptions = mergedSettings
-        ? {
-            format: mergedSettings.format,
-            showBreakdown: mergedSettings.showBreakdown,
-            showUnitLabel: mergedSettings.showUnitLabel,
-          }
-        : {
-            format: "compact" as const,
-            showBreakdown: true,
-            showUnitLabel: true,
-          };
+        ? { format: mergedSettings.format }
+        : { format: "compact" as const };
 
       const formatted = formatDurationFull(
         result.value,

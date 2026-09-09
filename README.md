@@ -89,23 +89,10 @@ const timeout = 30000;  // → "30s" (context clues)
 {
   "timescope.enabled": true,
   "timescope.format": "compact",           // "compact" | "verbose" | "both"
-  "timescope.defaultUnit": "seconds",     // "seconds" | "milliseconds" | "microseconds" | "nanoseconds" | "auto"
+  "timescope.defaultUnit": "auto",        // "seconds" | "milliseconds" | "microseconds" | "nanoseconds" | "hours" | "days" | "weeks" | "months" | "years" | "auto"
   "timescope.minValue": 1,
   "timescope.maxValue": 31557600000,
-  "timescope.showBreakdown": true,
-  "timescope.showUnitLabel": true,
-  "timescope.contextClues": true,
-  "timescope.ignorePatterns": [
-    "^0x[0-9a-f]+$",
-    "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",
-    "^\\d{4}-\\d{2}-\\d{2}$",
-    "^\\d{10,}$"
-  ],
-  "timescope.keywords": [
-    "timeout", "interval", "delay", "duration", "ttl", "expiry",
-    "retention", "age", "period", "rate", "throttle", "backoff",
-    "retry", "wait", "sleep", "pause", "hold", "cache", "session"
-  ]
+  "timescope.contextClues": true
 }
 ```
 
@@ -115,23 +102,10 @@ const timeout = 30000;  // → "30s" (context clues)
 require('timescope').setup({
   enabled = true,
   format = 'compact',              -- 'compact' | 'verbose' | 'both'
-  defaultUnit = 'seconds',         -- 'seconds' | 'milliseconds' | 'microseconds' | 'nanoseconds' | 'auto'
+  defaultUnit = 'auto',            -- 'seconds' | 'milliseconds' | 'microseconds' | 'nanoseconds' | 'hours' | 'days' | 'weeks' | 'months' | 'years' | 'auto'
   minValue = 1,
   maxValue = 31557600000,
-  showBreakdown = true,
-  showUnitLabel = true,
   contextClues = true,
-  ignorePatterns = {
-    '^0x[0-9a-f]+$',
-    '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$',
-    '^\\d{4}-\\d{2}-\\d{2}$',
-    '^\\d{10,}$',
-  },
-  keywords = {
-    'timeout', 'interval', 'delay', 'duration', 'ttl', 'expiry', 'expire',
-    'retention', 'age', 'period', 'rate', 'throttle', 'backoff', 'retry',
-    'wait', 'sleep', 'pause', 'hold', 'cache', 'session',
-  },
   debounceMs = 150,                -- cursor move debounce (ms)
 })
 ```

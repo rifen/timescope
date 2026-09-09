@@ -2,6 +2,7 @@ import type { FormatOptions } from "../types";
 
 const UNITS = [
   { unit: "year", ms: 31557600000, short: "y" },
+  { unit: "month", ms: 2592000000, short: "mo" }, // 30 days average
   { unit: "week", ms: 604800000, short: "w" },
   { unit: "day", ms: 86400000, short: "d" },
   { unit: "hour", ms: 3600000, short: "h" },
@@ -12,9 +13,29 @@ const UNITS = [
 
 export function toMilliseconds(
   value: number,
-  unit: "seconds" | "minutes" | "milliseconds" | "microseconds" | "nanoseconds",
+  unit:
+    | "seconds"
+    | "minutes"
+    | "milliseconds"
+    | "microseconds"
+    | "nanoseconds"
+    | "hours"
+    | "days"
+    | "weeks"
+    | "months"
+    | "years",
 ): number {
   switch (unit) {
+    case "years":
+      return value * 365 * 24 * 60 * 60 * 1000;
+    case "months":
+      return value * 30 * 24 * 60 * 60 * 1000; // 30-day average month
+    case "weeks":
+      return value * 7 * 24 * 60 * 60 * 1000;
+    case "days":
+      return value * 24 * 60 * 60 * 1000;
+    case "hours":
+      return value * 60 * 60 * 1000;
     case "minutes":
       return value * 60 * 1000;
     case "seconds":
@@ -48,7 +69,17 @@ export function formatDuration(ms: number, options: FormatOptions): string {
 
 export function formatDurationFull(
   value: number,
-  unit: "seconds" | "minutes" | "milliseconds" | "microseconds" | "nanoseconds",
+  unit:
+    | "seconds"
+    | "minutes"
+    | "milliseconds"
+    | "microseconds"
+    | "nanoseconds"
+    | "hours"
+    | "days"
+    | "weeks"
+    | "months"
+    | "years",
   options: FormatOptions,
 ): string {
   const ms = toMilliseconds(value, unit);
