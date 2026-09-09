@@ -143,9 +143,7 @@ vsce publish
 
 ## 🤝 Related
 
-- **[TimeScope Core](https://github.com/rifen/timescope-core)** — Shared detection/formatting logic (`@rifen/timescope-core`)
-- **[TimeScope Neovim](https://github.com/rifen/timescope-nvim)** — Same functionality for Neovim
-- **[Monorepo](https://github.com/rifen/timescope)** — All packages in one repo
+- **[TimeScope Monorepo](https://github.com/rifen/timescope)** — All packages in one repo
 
 ---
 

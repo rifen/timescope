@@ -61,6 +61,11 @@
             "milliseconds",
             "microseconds",
             "nanoseconds",
+            "hours",
+            "days",
+            "weeks",
+            "months",
+            "years",
             "auto"
           ],
           "default": "seconds",
@@ -86,33 +91,10 @@
           "default": 31557600000,
           "description": "Ignore values above this threshold (~1000 years in ms)"
         },
-        "timescope.showBreakdown": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show detailed breakdown (e.g., '1h 30m 45s')"
-        },
-        "timescope.showUnitLabel": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show unit label in hover (e.g., '15 minutes')"
-        },
         "timescope.contextClues": {
           "type": "boolean",
           "default": true,
           "description": "Use var names, comments, file type to infer unit"
-        },
-        "timescope.ignorePatterns": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "^0x[0-9a-f]+$",
-            "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",
-            "^\\d{4}-\\d{2}-\\d{2}$",
-            "^\\d{10,}$"
-          ],
-          "description": "Regex patterns to skip (hex, IPs, dates, epoch timestamps)"
         },
         "timescope.fileTypes": {
           "type": "array",
@@ -123,35 +105,6 @@
             "*"
           ],
           "description": "Glob patterns for file types to activate on"
-        },
-        "timescope.keywords": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "timeout",
-            "interval",
-            "delay",
-            "duration",
-            "ttl",
-            "expiry",
-            "expire",
-            "retention",
-            "age",
-            "period",
-            "rate",
-            "throttle",
-            "backoff",
-            "retry",
-            "wait",
-            "sleep",
-            "pause",
-            "hold",
-            "cache",
-            "session"
-          ],
-          "description": "Variable name hints for unit inference"
         }
       }
     }
