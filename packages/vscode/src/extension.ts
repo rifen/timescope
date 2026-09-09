@@ -2,12 +2,9 @@ import * as vscode from "vscode";
 import { DurationHoverProvider } from "./provider/durationHover.js";
 import { getSettings } from "./config/settings.js";
 
-let outputChannel: vscode.OutputChannel | undefined;
+let outputChannel: vscode.OutputChannel;
 
 function log(...args: unknown[]) {
-  if (!outputChannel) {
-    outputChannel = vscode.window.createOutputChannel("TimeScope");
-  }
   const message = args.map((arg) => String(arg)).join(" ");
   outputChannel.appendLine(`[TimeScope] ${message}`);
 }
@@ -58,11 +55,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Command to log current hover target info
   const logHoverTargetCmd = vscode.commands.registerCommand(
     "timescope.logHoverTarget",
-    async () => {
+    () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         log("No active editor");
-        outputChannel?.show(true);
+        outputChannel.show(true);
         return;
       }
       const position = editor.selection.active;
@@ -71,20 +68,9 @@ export function activate(context: vscode.ExtensionContext) {
       log(`File: ${editor.document.fileName}`);
       log(`Line ${position.line}: "${lineText}"`);
       log(`Cursor at character: ${position.character}`);
-
-      // Try to extract what the provider would detect
-      const provider = new DurationHoverProvider(
-        (message: string, ...args: unknown[]) => {
-          log(message, ...args);
-        },
-      );
-      provider.provideHover(
-        editor.document,
-        position,
-        {} as vscode.CancellationToken,
-      );
-      log("=== End Hover Target ===");
-      outputChannel?.show(true);
+      log("Note: Use the built-in hover to see duration detection.");
+      log("For debugging, enable 'timescope.logHoverTarget' verbose logging.");
+      outputChannel.show(true);
     },
   );
   context.subscriptions.push(logHoverTargetCmd);
@@ -95,6 +81,5 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   if (outputChannel) {
     outputChannel.dispose();
-    outputChannel = undefined;
   }
 }

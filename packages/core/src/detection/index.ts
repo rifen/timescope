@@ -29,10 +29,12 @@ function extractExpressionStart(line: string, startIdx: number): number {
     // relative to the original slice so we account for skipped spaces correctly
     const rawRest = line.slice(end);
     const strippedRest = rawRest.replace(/^\s+/, "");
-    if (!/^[*/+-]/.test(strippedRest)) break;
-    // Match operator, then manually consume spaces, then number (avoid [ *\t]* in regex)
+
+    // Check for operator at current position
     const operatorMatch = strippedRest.match(/^[*/+-]/);
     if (!operatorMatch) break;
+
+    // Consume operator
     let opEnd = operatorMatch[0].length;
     // Consume optional spaces after operator
     while (
@@ -43,11 +45,9 @@ function extractExpressionStart(line: string, startIdx: number): number {
     }
     const numMatch = strippedRest.slice(opEnd).match(/^\d+(?:\.\d+)?/);
     if (!numMatch) break;
-    const m = { 0: strippedRest.slice(0, opEnd + numMatch[0].length) };
-    if (!m) break;
     // The extension in original coords = stripped-match-length + leading-whitespace
     const leadingWS = rawRest.length - strippedRest.length;
-    end += leadingWS + m[0].length;
+    end += leadingWS + opEnd + numMatch[0].length;
   }
   return end;
 }
@@ -104,7 +104,6 @@ const LANGUAGE_KEYWORD_OVERRIDES: Record<string, Record<string, string[]>> = {
       "setimmediate",
       "requestanimationframe",
     ],
-    seconds: [],
   },
   typescript: {
     milliseconds: [
@@ -113,29 +112,24 @@ const LANGUAGE_KEYWORD_OVERRIDES: Record<string, Record<string, string[]>> = {
       "setimmediate",
       "requestanimationframe",
     ],
-    seconds: [],
   },
   // Python
   // Default mapping is mostly good for Python
   // time.sleep(X) -> X seconds (DEFAULT catches "sleep" -> seconds)
   // We ADD cases that DEFAULT misses:
   python: {
-    milliseconds: [],
     seconds: ["time.sleep"], // "sleep" alone is caught by default, but "time.sleep" is not
   },
   // Go
   // Go's time.Sleep takes nanoseconds, but default would see "sleep" -> seconds
   go: {
     nanoseconds: ["time.sleep", "time.after", "time.tick"],
-    milliseconds: [],
-    seconds: [],
   },
   // Rust
   // Default mapping is decent for Rust
   // std::thread::sleep takes milliseconds, but DEFAULT doesn't catch the full path
   rust: {
     milliseconds: ["std::thread::sleep", "tokio::time::sleep"],
-    seconds: [],
   },
   // Java
   // Default mapping is okay for Java
@@ -144,43 +138,16 @@ const LANGUAGE_KEYWORD_OVERRIDES: Record<string, Record<string, string[]>> = {
   // We ADD cases that DEFAULT might miss or get wrong:
   java: {
     milliseconds: ["thread.sleep"], // "sleep" alone is caught by default
-    seconds: [],
   },
   // C/C++
   // Default mapping is good for C/C++
   // sleep(seconds) -> seconds (DEFAULT catches "sleep" -> seconds)
   // usleep(microseconds) -> microseconds (DEFAULT doesn't catch "usleep")
   // nanosleep(nanoseconds) -> nanoseconds (DEFAULT doesn't catch "nanosleep")
-  cpp: {
-    milliseconds: [],
-    seconds: [],
-  },
-  c: {
-    milliseconds: [],
-    seconds: [],
-  },
-  // C#
-  // Default mapping is good for C#
-  // Thread.Sleep(milliseconds) -> milliseconds (DEFAULT catches "sleep" -> milliseconds)
-  // Task.Delay(milliseconds) -> milliseconds (DEFAULT catches "delay" -> milliseconds)
-  csharp: {
-    milliseconds: [],
-    seconds: [],
-  },
-  // Ruby
-  // Default mapping is good for Ruby
-  // sleep(seconds) -> seconds (DEFAULT catches "sleep" -> seconds)
-  ruby: {
-    seconds: [],
-  },
-  // PHP
-  // Default mapping is good for PHP
-  // sleep(seconds) -> seconds (DEFAULT catches "sleep" -> seconds)
-  // usleep(microseconds) -> microseconds (DEFAULT doesn't catch "usleep")
-  php: {
-    milliseconds: [],
-    seconds: [],
-  },
+  // These languages don't have any overrides needed
+  // C# (no overrides needed)
+  // Ruby (no overrides needed)
+  // PHP (no overrides needed)
 };
 
 export function detectDuration(
@@ -291,8 +258,8 @@ function inferFromContext(
     // Match unit suffixes: _NS, _US, _MS, _SEC, _S, _MIN, camelCase, or full words
     if (
       /\bns\b/i.test(lower) ||
-      /(?:^|_)ns$/i.test(lower) ||
-      /(?:[A-Z]|_)ns$/i.test(t) ||
+      /(?:^|_)ns$/.test(lower) ||
+      /(?:^|_)ns$/i.test(t) ||
       /nano(?:s|seconds)?$/i.test(lower)
     ) {
       return {
@@ -305,8 +272,8 @@ function inferFromContext(
     }
     if (
       /\bus\b/i.test(lower) ||
-      /(?:^|_)us$/i.test(lower) ||
-      /(?:[A-Z]|_)us$/i.test(t) ||
+      /(?:^|_)us$/.test(lower) ||
+      /(?:^|_)us$/i.test(t) ||
       /micro(?:s|seconds)?$/i.test(lower)
     ) {
       return {
@@ -319,8 +286,9 @@ function inferFromContext(
     }
     if (
       /\bms\b/i.test(lower) ||
-      /(?:^|_)ms$/i.test(lower) ||
-      /(?:[A-Z]|_)ms$/i.test(t) ||
+      /(?:^|_)ms$/.test(lower) ||
+      /(?:^|_)ms$/i.test(t) ||
+      /[A-Z]ms$/i.test(t) ||
       /milli(?:s|seconds)?$/i.test(lower)
     ) {
       return {
@@ -333,8 +301,9 @@ function inferFromContext(
     }
     if (
       /\bsec(?:s)?\b/i.test(lower) ||
-      /(?:^|_)sec(?:s)?$/i.test(lower) ||
-      /(?:[A-Z]|_)sec(?:s)?$/i.test(t) ||
+      /(?:^|_)sec(?:s)?$/.test(lower) ||
+      /(?:^|_)sec(?:s)?$/i.test(t) ||
+      /[A-Z]sec(?:s)?$/i.test(t) ||
       /second(?:s)?$/i.test(lower)
     ) {
       return {
@@ -347,12 +316,126 @@ function inferFromContext(
     }
     if (
       /\bmin(?:utes?)?\b/i.test(lower) ||
-      /(?:^|_)min(?:utes?)?$/i.test(lower) ||
-      /(?:[A-Z]|_)min(?:utes?)?$/i.test(t)
+      /(?:^|_)min(?:utes?)?$/.test(lower) ||
+      /(?:^|_)min(?:utes?)?$/i.test(t) ||
+      /[A-Z]min(?:utes?)?$/i.test(t)
     ) {
       return {
         value: 0,
         unit: "minutes",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bhours?\b/i.test(lower) ||
+      /(?:^|_)hour(s)?$/i.test(t) ||
+      /[A-Z]hour(s)?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "hours",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (/\bdays?\b/i.test(lower) || /(?:^|_)day(s)?$/i.test(t)) {
+      return {
+        value: 0,
+        unit: "days",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bw(?:eeks?)?\b/i.test(lower) ||
+      /(?:^|_)w(?:eeks?)?$/.test(lower) ||
+      /w(?:eeks?)?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "weeks",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bmo(?:nth)?s?\b/i.test(lower) ||
+      /(?:^|_)mo(?:nth)?s?$/.test(lower) ||
+      /mo(?:nth)?s?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "months",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\byears?\b/i.test(lower) ||
+      /(?:^|_)year(s)?$/i.test(t) ||
+      /[A-Z]year(s)?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "years",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bdays?\b/i.test(lower) ||
+      /(?:^|_)day(s)?$/i.test(t) ||
+      /[A-Z]day(s)?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "days",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bhours?\b/i.test(lower) ||
+      /(?:^|_)hour(s)?$/i.test(t) ||
+      /[A-Z]hour(s)?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "hours",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bweeks?\b/i.test(lower) ||
+      /(?:^|_)week(s)?$/i.test(t) ||
+      /[A-Z]week(s)?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "weeks",
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${t}"`,
+      };
+    }
+    if (
+      /\bmonths?\b/i.test(lower) ||
+      /(?:^|_)month(s)?$/i.test(t) ||
+      /[A-Z]month(s)?$/i.test(t)
+    ) {
+      return {
+        value: 0,
+        unit: "months",
         confidence: 0.95,
         source: "context",
         contextHint: `unit suffix: "${t}"`,
@@ -380,9 +463,8 @@ function inferFromContext(
   if (normLang && LANGUAGE_KEYWORD_OVERRIDES[normLang]) {
     const langOverrides = LANGUAGE_KEYWORD_OVERRIDES[normLang];
     for (const t of contextTokens) {
-      const lower = t.toLowerCase();
       for (const [unit, keywords] of Object.entries(langOverrides)) {
-        if (keywords.some((k) => lower.includes(k))) {
+        if (keywords.some((k) => wordToKeyword(t, k))) {
           return {
             value: 0,
             unit: unit as DetectedDuration["unit"],
@@ -430,23 +512,34 @@ function inferFromContext(
   return null;
 }
 
+// Check if word matches keyword using whole-word matching
+function wordToKeyword(word: string, keyword: string): boolean {
+  const lower = word.toLowerCase();
+  const kw = keyword.toLowerCase();
+  // First check exact word boundary match
+  const pattern = new RegExp(`\\b${kw}\\b`, "i");
+  if (pattern.test(lower)) return true;
+  // Fall back to contains check for compound names like "time.Sleep" or "retryCount"
+  return lower.includes(kw);
+}
+
 function inferUnitFromKeyword(word: string): DetectedDuration["unit"] | null {
   if (
     /\bms\b/.test(word) ||
-    /millisecond/.test(word) ||
-    /milliseconds/.test(word)
+    /\bmillisecond\b/.test(word) ||
+    /\bmilliseconds\b/.test(word)
   )
     return "milliseconds";
   if (
     /\bus\b/i.test(word) ||
-    /microsecond/.test(word) ||
-    /microseconds/.test(word)
+    /\bmicrosecond\b/i.test(word) ||
+    /\bmicroseconds\b/i.test(word)
   )
     return "microseconds";
   if (
     /\bns\b/i.test(word) ||
-    /nanosecond/.test(word) ||
-    /nanoseconds/.test(word)
+    /\bnanosecond\b/i.test(word) ||
+    /\bnanoseconds\b/i.test(word)
   )
     return "nanoseconds";
 
@@ -492,6 +585,11 @@ function keywordConfidence(word: string): number {
     "interval",
     "delay",
     "sleep",
+    "hour",
+    "day",
+    "week",
+    "month",
+    "year",
   ];
   const mediumConfidence = [
     "duration",
@@ -585,8 +683,6 @@ export function scanCode(
         matchedSpans.push({ start: match.index, end: spanEnd });
         const formatted = formatDurationFull(detected.value, detected.unit, {
           format: mergedSettings.format || "compact",
-          showBreakdown: mergedSettings.showBreakdown ?? true,
-          showUnitLabel: mergedSettings.showUnitLabel ?? true,
         });
 
         items.push({
