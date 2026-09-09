@@ -118,6 +118,8 @@
     "test": "node ./test/runTest.js",
     "unit-test": "mocha --require ts-node/register test/*.test.ts",
     "lint": "eslint src --ext .ts --ignore-path .gitignore",
+    "quick-test": "bash ./scripts/quick-test.sh",
+    "verify-hover": "node ./scripts/verify-hover.js",
     "package": "@vscode/vsce package --no-dependencies",
     "publish": "@vscode/vsce publish --no-dependencies"
   },

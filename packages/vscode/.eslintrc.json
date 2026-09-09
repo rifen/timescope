@@ -14,5 +14,5 @@
     "no-console": "error",
     "prefer-const": "error"
   },
-  "ignorePatterns": ["node_modules/", "dist/", "scripts/", "test/", "*.d.ts", "**/*.js"]
+  "ignorePatterns": ["node_modules/", "dist/", "scripts/", "test/", "test-data/", "*.d.ts", "**/*.js"]
 }
