@@ -1,6 +1,6 @@
 {
   "name": "timelens-nvim",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "description": "Neovim plugin for TimeScope - hover to see human-readable durations",
   "main": "lua/timelens/init.lua",
   "scripts": {

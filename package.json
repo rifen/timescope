@@ -1,6 +1,6 @@
 {
   "name": "timescope-mono",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "packageManager": "pnpm@11.24.0",
   "private": true,
   "workspaces": [
