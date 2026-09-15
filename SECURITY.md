@@ -44,3 +44,20 @@ The server is available at <http://localhost:8080>.
 
 Advanced Opengrep features such as interfile analysis may be alpha-quality. Do
 not treat alpha results as a substitute for review or targeted tests.
+
+## CodeQL analysis
+
+GitHub CodeQL provides complementary semantic analysis for the repository's
+JavaScript and TypeScript code. The workflow is defined in
+`.github/workflows/codeql.yml` and runs on:
+
+- Pull requests targeting `main` or `master`
+- Pushes to `main` or `master`
+- A weekly scheduled scan
+
+CodeQL results are published to GitHub's **Security → Code scanning** view. The
+workflow uses the pinned CodeQL Action v4 release, requests only read access to
+repository and pull-request metadata plus `security-events: write`, and uses
+`build-mode: none`, which is appropriate for JavaScript/TypeScript analysis in
+this project. It does not replace tests, dependency review, Opengrep, or manual
+security review.
