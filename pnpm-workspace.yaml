@@ -4,6 +4,16 @@ onlyBuiltDependencies:
   - "@vscode/vsce-sign"
   - keytar
   - node
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+# These existing transitive versions have been reviewed; keep exclusions
+# version-specific so new versions are checked by the trust policy.
+trustPolicyExclude:
+  - "chokidar@4.0.3"
+  - "semver@5.7.2"
+  - "semver@6.3.1"
+  - "undici-types@6.21.0"
 minimumReleaseAgeExclude:
   - "@rifen/timescope-core@0.1.0 || 0.1.1"
 overrides:

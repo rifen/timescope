@@ -191,7 +191,17 @@ function collectFiles(dirOrFile: string): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (IGNORED_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
-      const fullPath = path.join(dir, entry.name);
+      // Dirent names cannot contain path separators; reject traversal markers
+      // before constructing the child path from a trusted directory entry.
+      if (
+        entry.name === "." ||
+        entry.name === ".." ||
+        entry.name.includes("/") ||
+        entry.name.includes("\\")
+      ) {
+        continue;
+      }
+      const fullPath = `${dir}${path.sep}${entry.name}`;
       if (entry.isDirectory()) {
         walk(fullPath);
       } else if (entry.isFile()) {

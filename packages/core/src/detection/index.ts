@@ -297,11 +297,7 @@ function inferFromContext(
         contextHint: `unit suffix: "${t}"`,
       };
     }
-    if (
-      /(?:^|_)min(?:utes?)?$/.test(lower) ||
-      /(?:^|_)min(?:utes?)?$/.test(t) ||
-      /[a-z]Min(?:utes?)?$/.test(t)
-    ) {
+    if (/(?:^|_)min(?:utes?)?$/.test(lower) || /min(?:utes?)$/.test(lower)) {
       return {
         value: 0,
         unit: "minutes",
@@ -310,7 +306,7 @@ function inferFromContext(
         contextHint: `unit suffix: "${t}"`,
       };
     }
-    if (/(?:^|_)hour(s)?$/.test(t) || /[a-z]Hour(s)?$/.test(t)) {
+    if (/(?:^|_)hour(s)?$/.test(lower) || /hour(s)?$/.test(lower)) {
       return {
         value: 0,
         unit: "hours",
@@ -319,7 +315,7 @@ function inferFromContext(
         contextHint: `unit suffix: "${t}"`,
       };
     }
-    if (/(?:^|_)day(s)?$/.test(t) || /[a-z]Day(s)?$/.test(t)) {
+    if (/(?:^|_)day(s)?$/.test(lower) || /day(s)?$/.test(lower)) {
       return {
         value: 0,
         unit: "days",
@@ -354,7 +350,7 @@ function inferFromContext(
         contextHint: `unit suffix: "${t}"`,
       };
     }
-    if (/(?:^|_)year(s)?$/.test(t) || /[a-z]Year(s)?$/.test(t)) {
+    if (/(?:^|_)year(s)?$/.test(lower) || /year(s)?$/.test(lower)) {
       return {
         value: 0,
         unit: "years",
@@ -438,14 +434,15 @@ function inferFromContext(
 function wordToKeyword(word: string, keyword: string): boolean {
   const lower = word.toLowerCase();
   const kw = keyword.toLowerCase();
-  // First check exact word boundary match
-  const pattern = new RegExp(`\\b${kw}\\b`, "i");
-  if (pattern.test(lower)) return true;
-  // Support compound names like "time.Sleep" or "retryCount" without
-  // matching unrelated words such as "storage" for "age".
+  // Match normalized word parts instead of constructing a regex from keyword
+  // input. This avoids ReDoS risk while preserving compound names such as
+  // "time.Sleep" and "retryCount".
+  const wordParts = lower.split(/[^a-z0-9]+/).filter(Boolean);
+  if (wordParts.includes(kw)) return true;
   return (
     keywordMatches(word, keyword) ||
-    word.replace(/[^A-Za-z0-9]/g, "").toLowerCase() === kw
+    word.replace(/[^A-Za-z0-9]/g, "").toLowerCase() ===
+      kw.replace(/[^A-Za-z0-9]/g, "")
   );
 }
 

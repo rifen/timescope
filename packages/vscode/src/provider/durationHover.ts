@@ -14,17 +14,48 @@ function matchesFileType(
 }
 
 function makeMinimatch(pattern: string, name: string): boolean {
-  const re = new RegExp(
-    "^" +
-      pattern
-        .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-        .replace(/\*\*/g, "__GLOBSTAR__")
-        .replace(/\*/g, "[^/]*")
-        .replace(/\?/g, ".")
-        .replace(/__GLOBSTAR__/g, ".*") +
-      "$",
-  );
-  return re.test(name);
+  // Match glob syntax directly so configured file patterns never become
+  // executable regular expressions. Supports *, **, and ? without allowing
+  // pattern input to introduce ReDoS-prone regex constructs.
+  const glob = pattern.replaceAll("\\\\", "/");
+  const value = name.replaceAll("\\\\", "/");
+  const memo = new Map<string, boolean>();
+
+  function matches(patternIndex: number, valueIndex: number): boolean {
+    const key = `${patternIndex}:${valueIndex}`;
+    const cached = memo.get(key);
+    if (cached !== undefined) return cached;
+
+    let result: boolean;
+    if (patternIndex === glob.length) {
+      result = valueIndex === value.length;
+    } else if (glob.startsWith("**", patternIndex)) {
+      result =
+        matches(patternIndex + 2, valueIndex) ||
+        (valueIndex < value.length && matches(patternIndex, valueIndex + 1));
+    } else if (glob[patternIndex] === "*") {
+      result =
+        matches(patternIndex + 1, valueIndex) ||
+        (valueIndex < value.length &&
+          value[valueIndex] !== "/" &&
+          matches(patternIndex, valueIndex + 1));
+    } else if (glob[patternIndex] === "?") {
+      result =
+        valueIndex < value.length &&
+        value[valueIndex] !== "/" &&
+        matches(patternIndex + 1, valueIndex + 1);
+    } else {
+      result =
+        valueIndex < value.length &&
+        glob[patternIndex] === value[valueIndex] &&
+        matches(patternIndex + 1, valueIndex + 1);
+    }
+
+    memo.set(key, result);
+    return result;
+  }
+
+  return matches(0, 0);
 }
 
 export class DurationHoverProvider implements vscode.HoverProvider {

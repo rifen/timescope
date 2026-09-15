@@ -117,7 +117,7 @@ const TEST_CASES = [
     {
         token: "1",
         line: "const VALUE_YEARS = 1;",
-        expected: "12mo 5d",
+        expected: "1y",
         desc: "Years unit",
     },
 
@@ -158,11 +158,13 @@ for (const test of TEST_CASES) {
 
     if (test.expected === null) {
         if (result === null) {
-            console.log(`✅ PASS: ${test.desc} - correctly ignored`);
+            console.log("✅ PASS:", test.desc, "- correctly ignored");
             passed++;
         } else {
             console.log(
-                `❌ FAIL: ${test.desc} - should be ignored but got:`,
+                "❌ FAIL:",
+                test.desc,
+                "- should be ignored but got:",
                 result,
             );
             failed++;
@@ -173,22 +175,28 @@ for (const test of TEST_CASES) {
                 format: "compact",
             });
             if (formatted === test.expected) {
-                console.log(`✅ PASS: ${test.desc}`);
-                console.log(`   Input: ${test.token} → Output: ${formatted}`);
+                console.log("✅ PASS:", test.desc);
+                console.log("   Input:", test.token, "→ Output:", formatted);
                 passed++;
             } else {
-                console.log(`❌ FAIL: ${test.desc}`);
-                console.log(`   Input: ${test.token}`);
-                console.log(`   Expected: ${test.expected}`);
+                console.log("❌ FAIL:", test.desc);
+                console.log("   Input:", test.token);
+                console.log("   Expected:", test.expected);
                 console.log(
-                    `   Got: ${formatted} (unit: ${result.unit}, confidence: ${result.confidence})`,
+                    "   Got:",
+                    formatted,
+                    "(unit:",
+                    result.unit,
+                    "confidence:",
+                    result.confidence,
+                    ")",
                 );
                 failed++;
             }
         } else {
-            console.log(`❌ FAIL: ${test.desc} - no detection result`);
-            console.log(`   Input: ${test.token}`);
-            console.log(`   Expected: ${test.expected}`);
+            console.log("❌ FAIL:", test.desc, "- no detection result");
+            console.log("   Input:", test.token);
+            console.log("   Expected:", test.expected);
             failed++;
         }
     }
@@ -196,7 +204,13 @@ for (const test of TEST_CASES) {
 
 console.log("=".repeat(60));
 console.log(
-    `\n📊 Results: ${passed} passed, ${failed} failed out of ${TEST_CASES.length} tests`,
+    "\n📊 Results:",
+    passed,
+    "passed,",
+    failed,
+    "failed out of",
+    TEST_CASES.length,
+    "tests",
 );
 
 if (failed > 0) {

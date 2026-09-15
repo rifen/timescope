@@ -136,6 +136,25 @@ timescope/
 
 ---
 
+## 🔐 Security and Static Analysis Invariants
+
+- Run `pnpm security:opengrep` before submitting security-sensitive changes.
+- CodeQL and Opengrep findings must be addressed in code where practical; do not
+  disable a rule merely to make CI green.
+- Never construct a `RegExp` from configuration, document content, CLI input, or
+  other variable data. Use bounded string parsing or a reviewed glob matcher.
+- Validate filesystem entry names before constructing child paths. Directory
+  entries must not be `.`/`..` or contain `/` or `\\`; avoid joining untrusted
+  path fragments.
+- Do not interpolate variable data into `console.log` format strings. Pass
+  dynamic values as separate arguments so format specifiers cannot forge logs.
+- Keep pnpm supply-chain protections enabled in `pnpm-workspace.yaml`:
+  `blockExoticSubdeps: true`, `minimumReleaseAge: 10080`, and
+  `trustPolicy: no-downgrade`.
+- If a security scanner reports a deliberate false positive, document the
+  validation that makes it safe and use the narrowest reviewed suppression;
+  never suppress an entire scanner or workflow.
+
 ## ❌ Historical Pitfalls (Do Not Reintroduce)
 
 | Pitfall | Symptom | Fix |
