@@ -1,6 +1,6 @@
 {
-  "name": "timescope-mono",
-  "version": "0.2.26",
+  "name": "timescope",
+  "version": "0.2.28",
   "packageManager": "pnpm@11.24.0",
   "private": true,
   "workspaces": [
@@ -9,17 +9,14 @@
   "scripts": {
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
+    "test:e2e": "pnpm --filter @rifen/timescope-core build && pnpm --filter timescope-nvim build && pnpm --filter timescope-nvim test:e2e && pnpm --filter rifen-timescope test:e2e",
+    "test:manual:vscode": "pnpm --filter rifen-timescope quick-test",
+    "test:manual:nvim": "pnpm --filter timescope-nvim test:manual",
     "lint": "pnpm -r run lint",
     "timescope": "node packages/core/dist/cli.js",
     "package:core": "pnpm --filter @rifen/timescope-core run build",
-    "package:vscode": "pnpm --filter timelens-vscode run package",
-    "package:nvim": "pnpm --filter timelens-nvim run build"
-  },
-  "devDependencies": {
-    "@vscode/vsce": "^3.0.0",
-    "mocha": "^11.8.0",
-    "serialize-javascript": "^7.1.1",
-    "typescript": "^5.3.3"
+    "package:vscode": "pnpm --filter rifen-timescope run package",
+    "package:nvim": "pnpm --filter timescope-nvim run build"
   },
   "engines": {
     "node": ">=20.0.0",

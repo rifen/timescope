@@ -91,10 +91,8 @@ TimeScope automatically detects the programming language and adjusts unit infere
 | Go | `time.Sleep`, `time.After`, `time.Tick` → **nanoseconds** |
 | Rust | `std::thread::sleep`, `tokio::time::sleep` → **milliseconds** |
 | Java | `Thread.sleep`, `TimeUnit.*.sleep` → **milliseconds** |
-| C# | `Thread.Sleep`, `Task.Delay` → **milliseconds** |
-| C/C++ | `sleep`, `usleep`, `nanosleep`, `std::this_thread::sleep_for` → **seconds** |
-| Ruby | `sleep` → **seconds** |
-| PHP | `sleep`, `usleep`, `time_nanosleep` → **seconds** |
+| C/C++ | Uses the shared keyword heuristics; language-specific overrides are not currently defined |
+| C#, Ruby, PHP | Uses the shared keyword heuristics; language-specific overrides are not currently defined |
 
 Works automatically — no configuration needed. The editor's filetype is passed to the core library.
 

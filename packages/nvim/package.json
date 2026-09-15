@@ -1,12 +1,14 @@
 {
-  "name": "timelens-nvim",
-  "version": "0.2.26",
+  "name": "timescope-nvim",
+  "version": "0.2.28",
   "description": "Neovim plugin for TimeScope - hover to see human-readable durations",
-  "main": "lua/timelens/init.lua",
+  "main": "lua/timescope/init.lua",
   "scripts": {
-    "bridge": "node bin/bridge.js",
-    "build": "tsc -p tsconfig.bridge.json",
+    "bridge": "node bin/timescope-bridge.js",
+    "build": "tsc -p tsconfig.bridge.json && ncc build bin/timescope-bridge.js -o .bridge-bundle && mv .bridge-bundle/index.js bin/timescope-bridge.js && rm -rf .bridge-bundle",
     "test": "jest --runInBand",
+    "test:e2e": "nvim --headless --clean -u test/headless.lua",
+    "test:manual": "bash ./scripts/manual-test.sh",
     "test:watch": "jest --watch"
   },
   "dependencies": {
@@ -15,6 +17,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
+    "@vercel/ncc": "^0.38.4",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.12",
     "typescript": "^5.3.3"

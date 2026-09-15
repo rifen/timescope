@@ -158,12 +158,12 @@ export function detectDuration(
 ): DetectedDuration | null {
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
 
-  // Allow expressions with spaces - validate after removing whitespace
-  const sanitized = token.trim().replace(/\s+/g, "");
-  if (!/^[\d+\-*/().]+$/.test(sanitized)) return null;
+  const value = evaluateExpression(token);
+  if (value === null || value <= 0) return null;
 
-  const value = evaluateExpression(sanitized);
-  if (value === null) return null;
+  // Reject invalid sign before context inference. Contextual units may legitimately
+  // use values above the generic raw-value ceiling (for example nanoseconds).
+  if (value <= 0 || value < mergedSettings.minValue) return null;
 
   // Always try context clues first — they can override min/max, defaults, and ignore patterns
   if (mergedSettings.contextClues) {
@@ -181,22 +181,8 @@ export function detectDuration(
     }
   }
 
-  // Check if variable name ends with unit suffix (avoid ReDoS-prone regex nesting)
-  const lineIdentifier = extractIdentifier(lineContext);
-
-  if (lineIdentifier && lineIdentifier.endsWith("_MINUTES")) {
-    return {
-      value,
-      unit: "minutes",
-      confidence: 0.95,
-      source: "context",
-      contextHint: `unit suffix: "${lineIdentifier}"`,
-    };
-  }
-
-  // Check value range
-  if (value < mergedSettings.minValue || value > mergedSettings.maxValue)
-    return null;
+  // Generic heuristic detections must respect the configured upper bound.
+  if (value > mergedSettings.maxValue) return null;
 
   // Ignore patterns
   for (const regex of COMPILED_IGNORE_PATTERNS) {
@@ -257,9 +243,9 @@ function inferFromContext(
 
     // Match unit suffixes: _NS, _US, _MS, _SEC, _S, _MIN, camelCase, or full words
     if (
-      /\bns\b/i.test(lower) ||
       /(?:^|_)ns$/.test(lower) ||
-      /(?:^|_)ns$/i.test(t) ||
+      /(?:^|_)ns$/.test(t) ||
+      /[a-z]Ns$/.test(t) ||
       /nano(?:s|seconds)?$/i.test(lower)
     ) {
       return {
@@ -271,9 +257,8 @@ function inferFromContext(
       };
     }
     if (
-      /\bus\b/i.test(lower) ||
       /(?:^|_)us$/.test(lower) ||
-      /(?:^|_)us$/i.test(t) ||
+      /(?:^|_)us$/.test(t) ||
       /micro(?:s|seconds)?$/i.test(lower)
     ) {
       return {
@@ -285,10 +270,9 @@ function inferFromContext(
       };
     }
     if (
-      /\bms\b/i.test(lower) ||
       /(?:^|_)ms$/.test(lower) ||
-      /(?:^|_)ms$/i.test(t) ||
-      /[A-Z]ms$/i.test(t) ||
+      /(?:^|_)ms$/.test(t) ||
+      /[a-z]Ms$/.test(t) ||
       /milli(?:s|seconds)?$/i.test(lower)
     ) {
       return {
@@ -300,10 +284,9 @@ function inferFromContext(
       };
     }
     if (
-      /\bsec(?:s)?\b/i.test(lower) ||
       /(?:^|_)sec(?:s)?$/.test(lower) ||
-      /(?:^|_)sec(?:s)?$/i.test(t) ||
-      /[A-Z]sec(?:s)?$/i.test(t) ||
+      /(?:^|_)sec(?:s)?$/.test(t) ||
+      /[a-z]Sec(?:s)?$/.test(t) ||
       /second(?:s)?$/i.test(lower)
     ) {
       return {
@@ -315,10 +298,9 @@ function inferFromContext(
       };
     }
     if (
-      /\bmin(?:utes?)?\b/i.test(lower) ||
       /(?:^|_)min(?:utes?)?$/.test(lower) ||
-      /(?:^|_)min(?:utes?)?$/i.test(t) ||
-      /[A-Z]min(?:utes?)?$/i.test(t)
+      /(?:^|_)min(?:utes?)?$/.test(t) ||
+      /[a-z]Min(?:utes?)?$/.test(t)
     ) {
       return {
         value: 0,
@@ -328,11 +310,7 @@ function inferFromContext(
         contextHint: `unit suffix: "${t}"`,
       };
     }
-    if (
-      /\bhours?\b/i.test(lower) ||
-      /(?:^|_)hour(s)?$/i.test(t) ||
-      /[A-Z]hour(s)?$/i.test(t)
-    ) {
+    if (/(?:^|_)hour(s)?$/.test(t) || /[a-z]Hour(s)?$/.test(t)) {
       return {
         value: 0,
         unit: "hours",
@@ -341,7 +319,7 @@ function inferFromContext(
         contextHint: `unit suffix: "${t}"`,
       };
     }
-    if (/\bdays?\b/i.test(lower) || /(?:^|_)day(s)?$/i.test(t)) {
+    if (/(?:^|_)day(s)?$/.test(t) || /[a-z]Day(s)?$/.test(t)) {
       return {
         value: 0,
         unit: "days",
@@ -351,9 +329,9 @@ function inferFromContext(
       };
     }
     if (
-      /\bw(?:eeks?)?\b/i.test(lower) ||
       /(?:^|_)w(?:eeks?)?$/.test(lower) ||
-      /w(?:eeks?)?$/i.test(t)
+      /(?:^|_)w(?:eeks?)?$/.test(t) ||
+      /[a-z]Week(s)?$/.test(t)
     ) {
       return {
         value: 0,
@@ -364,9 +342,9 @@ function inferFromContext(
       };
     }
     if (
-      /\bmo(?:nth)?s?\b/i.test(lower) ||
       /(?:^|_)mo(?:nth)?s?$/.test(lower) ||
-      /mo(?:nth)?s?$/i.test(t)
+      /(?:^|_)mo(?:nth)?s?$/.test(t) ||
+      /[a-z]Month(s)?$/.test(t)
     ) {
       return {
         value: 0,
@@ -376,66 +354,10 @@ function inferFromContext(
         contextHint: `unit suffix: "${t}"`,
       };
     }
-    if (
-      /\byears?\b/i.test(lower) ||
-      /(?:^|_)year(s)?$/i.test(t) ||
-      /[A-Z]year(s)?$/i.test(t)
-    ) {
+    if (/(?:^|_)year(s)?$/.test(t) || /[a-z]Year(s)?$/.test(t)) {
       return {
         value: 0,
         unit: "years",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /\bdays?\b/i.test(lower) ||
-      /(?:^|_)day(s)?$/i.test(t) ||
-      /[A-Z]day(s)?$/i.test(t)
-    ) {
-      return {
-        value: 0,
-        unit: "days",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /\bhours?\b/i.test(lower) ||
-      /(?:^|_)hour(s)?$/i.test(t) ||
-      /[A-Z]hour(s)?$/i.test(t)
-    ) {
-      return {
-        value: 0,
-        unit: "hours",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /\bweeks?\b/i.test(lower) ||
-      /(?:^|_)week(s)?$/i.test(t) ||
-      /[A-Z]week(s)?$/i.test(t)
-    ) {
-      return {
-        value: 0,
-        unit: "weeks",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /\bmonths?\b/i.test(lower) ||
-      /(?:^|_)month(s)?$/i.test(t) ||
-      /[A-Z]month(s)?$/i.test(t)
-    ) {
-      return {
-        value: 0,
-        unit: "months",
         confidence: 0.95,
         source: "context",
         contextHint: `unit suffix: "${t}"`,
@@ -483,9 +405,9 @@ function inferFromContext(
 
   for (const t of contextTokens) {
     const lower = t.toLowerCase();
-    const unitFromKeyword = inferUnitFromKeyword(lower);
+    const unitFromKeyword = inferUnitFromKeyword(t);
     if (unitFromKeyword) {
-      let confidence = keywordConfidence(lower);
+      let confidence = keywordConfidence(t);
       // Boost confidence for explicit unit words
       if (/(milli|micro|nano|second)s?/.test(lower)) {
         confidence = 0.95;
@@ -519,60 +441,59 @@ function wordToKeyword(word: string, keyword: string): boolean {
   // First check exact word boundary match
   const pattern = new RegExp(`\\b${kw}\\b`, "i");
   if (pattern.test(lower)) return true;
-  // Fall back to contains check for compound names like "time.Sleep" or "retryCount"
-  return lower.includes(kw);
+  // Support compound names like "time.Sleep" or "retryCount" without
+  // matching unrelated words such as "storage" for "age".
+  return (
+    keywordMatches(word, keyword) ||
+    word.replace(/[^A-Za-z0-9]/g, "").toLowerCase() === kw
+  );
+}
+
+function keywordMatches(word: string, keyword: string): boolean {
+  const parts = word
+    .split(/(?<=[a-z0-9])(?=[A-Z])|[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.toLowerCase());
+  return parts.includes(keyword.toLowerCase());
 }
 
 function inferUnitFromKeyword(word: string): DetectedDuration["unit"] | null {
-  if (
-    /\bms\b/.test(word) ||
-    /\bmillisecond\b/.test(word) ||
-    /\bmilliseconds\b/.test(word)
-  )
+  if (keywordMatches(word, "ms") || keywordMatches(word, "millisecond"))
     return "milliseconds";
-  if (
-    /\bus\b/i.test(word) ||
-    /\bmicrosecond\b/i.test(word) ||
-    /\bmicroseconds\b/i.test(word)
-  )
+  if (keywordMatches(word, "us") || keywordMatches(word, "microsecond"))
     return "microseconds";
-  if (
-    /\bns\b/i.test(word) ||
-    /\bnanosecond\b/i.test(word) ||
-    /\bnanoseconds\b/i.test(word)
-  )
+  if (keywordMatches(word, "ns") || keywordMatches(word, "nanosecond"))
     return "nanoseconds";
-
   if (
-    word.includes("retry") ||
-    word.includes("backoff") ||
-    word.includes("delay") ||
-    word.includes("wait") ||
-    word.includes("sleep") ||
-    word.includes("pause") ||
-    word.includes("hold") ||
-    word.includes("throttle") ||
-    word.includes("rate")
-  ) {
+    [
+      "retry",
+      "backoff",
+      "delay",
+      "wait",
+      "sleep",
+      "pause",
+      "hold",
+      "throttle",
+      "rate",
+    ].some((kw) => keywordMatches(word, kw))
+  )
     return "milliseconds";
-  }
-
   if (
-    word.includes("timeout") ||
-    word.includes("ttl") ||
-    word.includes("interval") ||
-    word.includes("duration") ||
-    word.includes("expiry") ||
-    word.includes("expire") ||
-    word.includes("retention") ||
-    word.includes("age") ||
-    word.includes("period") ||
-    word.includes("cache") ||
-    word.includes("session")
-  ) {
+    [
+      "timeout",
+      "ttl",
+      "interval",
+      "duration",
+      "expiry",
+      "expire",
+      "retention",
+      "age",
+      "period",
+      "cache",
+      "session",
+    ].some((kw) => keywordMatches(word, kw))
+  )
     return "seconds";
-  }
-
   return null;
 }
 
@@ -608,20 +529,38 @@ function keywordConfidence(word: string): number {
   ];
 
   for (const kw of highConfidence) {
-    if (word.includes(kw)) return 0.85;
+    if (keywordMatches(word, kw)) return 0.85;
   }
   for (const kw of mediumConfidence) {
-    if (word.includes(kw)) return 0.75;
+    if (keywordMatches(word, kw)) return 0.75;
   }
   return 0.65;
+}
+
+function languageFromFilePath(filePath?: string): string | undefined {
+  if (!filePath) return undefined;
+  const ext = filePath.toLowerCase().split(".").pop();
+  if (!ext) return undefined;
+  if (["js", "jsx", "mjs", "cjs", "ts", "tsx"].includes(ext))
+    return "javascript";
+  if (ext === "py") return "python";
+  if (ext === "go") return "go";
+  if (ext === "rs") return "rust";
+  if (ext === "java") return "java";
+  if (["c", "h", "cpp"].includes(ext)) return "c";
+  if (ext === "rb") return "ruby";
+  if (ext === "php") return "php";
+  return ext;
 }
 
 export function scanCode(
   code: string,
   filePath?: string,
   settings: Partial<TimeScopeSettings> = {},
+  language?: string,
 ): ScanResult {
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
+  const resolvedLanguage = language ?? languageFromFilePath(filePath);
   const lines = code.split(/\r?\n/);
   const items: DetectedItem[] = [];
 
@@ -673,12 +612,23 @@ export function scanCode(
       ) {
         continue;
       }
-      // Additional skip: tokens that are part of version strings (e.g., 2.3 in "v1.2.3")
-      if (token.includes(".") && /[v@]\d+\.\d+/.test(rawLine)) {
-        continue;
+      // Skip decimal spans only when the span itself is part of a version string.
+      if (token.includes(".")) {
+        const versionPattern = /[v@^~]\d+(?:\.\d+)+/g;
+        const isVersionPart = Array.from(rawLine.matchAll(versionPattern)).some(
+          (version) =>
+            match!.index >= version.index! &&
+            match!.index < version.index! + version[0].length,
+        );
+        if (isVersionPart) continue;
       }
 
-      const detected = detectDuration(token, rawLine, mergedSettings);
+      const detected = detectDuration(
+        token,
+        rawLine,
+        mergedSettings,
+        resolvedLanguage,
+      );
       if (detected) {
         matchedSpans.push({ start: match.index, end: spanEnd });
         const formatted = formatDurationFull(detected.value, detected.unit, {

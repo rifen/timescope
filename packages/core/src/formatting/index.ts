@@ -1,7 +1,7 @@
 import type { FormatOptions } from "../types";
 
 const UNITS = [
-  { unit: "year", ms: 31557600000, short: "y" },
+  { unit: "year", ms: 31536000000, short: "y" },
   { unit: "month", ms: 2592000000, short: "mo" }, // 30 days average
   { unit: "week", ms: 604800000, short: "w" },
   { unit: "day", ms: 86400000, short: "d" },
@@ -53,14 +53,26 @@ export function toMilliseconds(
 }
 
 export function formatDuration(ms: number, options: FormatOptions): string {
+  if (ms < 0) {
+    const positive = formatDuration(-ms, options);
+    return `-${positive}`;
+  }
   if (ms < 1) {
     return options.format === "verbose" ? "less than 1 millisecond" : "<1ms";
   }
 
   const breakdown = computeBreakdown(ms);
 
-  const compact = formatCompact(breakdown);
-  const verbose = formatVerbose(breakdown);
+  const visibleBreakdown =
+    options.showBreakdown === false ? breakdown.slice(0, 1) : breakdown;
+  const compact = formatCompact(
+    visibleBreakdown,
+    options.showUnitLabel !== false,
+  );
+  const verbose = formatVerbose(
+    visibleBreakdown,
+    options.showUnitLabel !== false,
+  );
 
   if (options.format === "compact") return compact;
   if (options.format === "verbose") return verbose;
@@ -140,6 +152,11 @@ function parseTokens(tokens: string[]): number | null {
   }
 
   function parseFactor(): number {
+    if (tokens[pos] === "+" || tokens[pos] === "-") {
+      const sign = tokens[pos++];
+      const value = parseFactor();
+      return sign === "-" ? -value : value;
+    }
     if (tokens[pos] === "(") {
       pos++; // consume '('
       const value = parseExpression();
@@ -206,21 +223,27 @@ function computeBreakdown(
 
 function formatCompact(
   breakdown: Array<{ unit: string; short: string; value: number }>,
+  showUnitLabel = true,
 ): string {
   if (breakdown.length === 0) return "<1ms";
   const toShow = breakdown.slice(0, 2);
-  return toShow.map(({ short, value }) => `${value}${short}`).join(" ");
+  return toShow
+    .map(({ short, value }) =>
+      showUnitLabel ? `${value}${short}` : `${value}`,
+    )
+    .join(" ");
 }
 
 function formatVerbose(
   breakdown: Array<{ unit: string; short: string; value: number }>,
+  showUnitLabel = true,
 ): string {
   if (breakdown.length === 0) return "less than 1 millisecond";
 
   return breakdown
     .map(({ unit, value }) => {
       const plural = value === 1 ? "" : "s";
-      return `${value} ${unit}${plural}`;
+      return showUnitLabel ? `${value} ${unit}${plural}` : `${value}`;
     })
     .join(", ");
 }

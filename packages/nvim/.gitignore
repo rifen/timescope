@@ -19,3 +19,5 @@ Thumbs.db
 # Build output
 dist/
 bin/
+!bin/__tests__/
+!bin/__tests__/bridge.test.ts
