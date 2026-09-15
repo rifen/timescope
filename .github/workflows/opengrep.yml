@@ -1,0 +1,40 @@
+name: Opengrep SAST
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    name: Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Run Opengrep scan
+        id: scan
+        # Pin the action to the reviewed v2.0.1 commit. The action verifies the
+        # Opengrep release signature and checksum before running the scan.
+        uses: platform-sec/opengrep-action@4c19a88ebb98ab9fb77993cb6d16b078740fad1e
+        with:
+          target: .
+          output-format: json/sarif
+          # Keep the existing baseline visible without blocking every PR.
+          strict: false
+
+      - name: Upload Opengrep SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@a35ac6e6798d72df5475948b28efb89edc2e19ca
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif-file }}
+          category: opengrep
