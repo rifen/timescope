@@ -5,6 +5,13 @@ jspm_packages/
 # Build output
 dist/
 out/
+# Compiled source and test artifacts
+src/**/*.js
+src/**/*.js.map
+test/**/*.js
+test/**/*.js.map
+test/**/*.d.ts
+test/**/*.d.ts.map
 *.vsix
 *.tgz
 

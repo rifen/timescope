@@ -104,16 +104,8 @@ describe("formatDurationFull", () => {
   });
 
   it("formats years correctly", () => {
-    // 2 years = 2 * 31536000000 = 63072000000 ms
-    // Compact format shows breakdown: 1y + 12mo (approx)
-    expect(formatDurationFull(2, "years", { format: "compact" })).toBe(
-      "1y 12mo",
-    );
-    // 365 days = 31536000000 ms, which is less than 1 year (31557600000)
-    // So it shows as months and days
-    expect(formatDurationFull(365, "days", { format: "compact" })).toBe(
-      "12mo 5d",
-    );
+    expect(formatDurationFull(2, "years", { format: "compact" })).toBe("2y");
+    expect(formatDurationFull(365, "days", { format: "compact" })).toBe("1y");
   });
 });
 

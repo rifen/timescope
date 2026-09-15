@@ -14,6 +14,19 @@
       "preLaunchTask": "npm:compile"
     },
     {
+      "name": "Extension Development Host (Clean - No Extensions)",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensions-dir=${workspaceFolder}/.test-extensions",
+        "${workspaceFolder}/test-data/sample.ts"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "npm:compile"
+    },
+    {
       "name": "Extension Tests",
       "type": "extensionHost",
       "request": "launch",

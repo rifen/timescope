@@ -7,6 +7,7 @@ export interface TimeScopeSettings {
     | "milliseconds"
     | "microseconds"
     | "nanoseconds"
+    | "minutes"
     | "hours"
     | "days"
     | "weeks"

@@ -2,6 +2,31 @@ import * as vscode from "vscode";
 import { detectDuration, formatDurationFull } from "@rifen/timescope-core";
 import { getSettings } from "../config/settings.js";
 
+// Match the document path against configured file-type glob patterns.
+function matchesFileType(
+  document: vscode.TextDocument,
+  patterns: string[],
+): boolean {
+  if (patterns.includes("*")) return true;
+  return patterns.some(
+    (p) => p === document.languageId || makeMinimatch(p, document.fileName),
+  );
+}
+
+function makeMinimatch(pattern: string, name: string): boolean {
+  const re = new RegExp(
+    "^" +
+      pattern
+        .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*\*/g, "__GLOBSTAR__")
+        .replace(/\*/g, "[^/]*")
+        .replace(/\?/g, ".")
+        .replace(/__GLOBSTAR__/g, ".*") +
+      "$",
+  );
+  return re.test(name);
+}
+
 export class DurationHoverProvider implements vscode.HoverProvider {
   private readonly log: (message: string, ...args: unknown[]) => void;
 
@@ -15,7 +40,7 @@ export class DurationHoverProvider implements vscode.HoverProvider {
     _token: vscode.CancellationToken,
   ): vscode.Hover | null {
     const settings = getSettings();
-    if (!settings.enabled) {
+    if (!settings.enabled || !matchesFileType(document, settings.fileTypes)) {
       return null;
     }
 
@@ -47,9 +72,13 @@ export class DurationHoverProvider implements vscode.HoverProvider {
       return null;
     }
 
+    this.log("detection result", duration);
+
     const formatted = formatDurationFull(duration.value, duration.unit, {
       format: settings.format,
     });
+
+    this.log("formatted result", formatted);
 
     const lines = [formatted];
     if (duration.source === "context" && duration.contextHint) {
@@ -70,8 +99,9 @@ export class DurationHoverProvider implements vscode.HoverProvider {
       /^(\s*)(?:(const|let|var|val|final)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/,
     );
     if (assignmentMatch) {
-      const [, leading, varName, expression] = assignmentMatch;
-      const varStart = leading.length;
+      // Regex groups: 1=leading, 2=keyword, 3=varName, 4=expression
+      const [, leading, , varName, expression] = assignmentMatch;
+      const varStart = line.indexOf(varName, leading.length);
       const varEnd = varStart + varName.length;
       const exprStart =
         varEnd +
@@ -89,8 +119,11 @@ export class DurationHoverProvider implements vscode.HoverProvider {
 
       if (charPos >= varStart && charPos <= varEnd) {
         this.log("cursor on variable name");
+        // Strip comments and trailing ; or , from the captured expression
+        let expr = this.stripComments(expression);
+        expr = expr.replace(/\s*[;,]\s*$/, "");
         return {
-          token: expression.trim(),
+          token: expr.trim(),
           range: new vscode.Range(
             new vscode.Position(lineNum, varStart),
             new vscode.Position(lineNum, varEnd),
@@ -100,8 +133,9 @@ export class DurationHoverProvider implements vscode.HoverProvider {
 
       if (charPos >= exprStart && charPos <= exprStart + expression.length) {
         this.log("cursor on expression");
-        // Strip trailing ; or , from the captured expression
-        const expr = expression.replace(/\s*[;,]\s*$/, "");
+        // Strip comments and trailing ; or , from the captured expression
+        let expr = this.stripComments(expression);
+        expr = expr.replace(/\s*[;,]\s*$/, "");
         return {
           token: expr.trim(),
           range: new vscode.Range(
@@ -158,17 +192,8 @@ export class DurationHoverProvider implements vscode.HoverProvider {
     const keywordPattern =
       /\b(const|let|var|function|async|await|return|if|else|for|while|switch|case|default|break|continue|try|catch|finally|throw|new|typeof|instanceof|delete|void|yield)\b/;
 
-    for (; start > 0 && /[\w.$*]/.test(line[start - 1]); start--) {
-      // Check if we've hit a keyword boundary
-      const beforeChar = line[start - 1];
-      if (!/[\w$*]/.test(beforeChar)) break;
-    }
-
-    for (; end < line.length && /[\w.$*]/.test(line[end]); end++) {
-      // Check if we've hit a keyword boundary
-      const afterChar = line[end];
-      if (!/[\w$*]/.test(afterChar)) break;
-    }
+    while (start > 0 && /[\w.$*]/.test(line[start - 1])) start--;
+    while (end < line.length && /[\w.$*]/.test(line[end])) end++;
 
     // If the resulting word is a keyword, return null to force expression matching
     const word = line.slice(start, end);
@@ -185,50 +210,17 @@ export class DurationHoverProvider implements vscode.HoverProvider {
     wordStart: number,
     wordEnd: number,
   ): { expression: string; start: number; end: number } | null {
-    const operators = /[+\-*/()]/;
-
+    const expressionCharacters = /[\w.$+\-*/()\s]/;
     let start = wordStart;
     let end = wordEnd;
 
-    // Expand backward
-    for (; start > 0; ) {
-      const char = line[start - 1];
-      if (/\s/.test(char)) {
-        let i = start - 1;
-        for (; i >= 0 && /\s/.test(line[i]); i--);
-        if (i >= 0 && operators.test(line[i])) {
-          start = i + 1;
-          continue;
-        }
-        break;
-      }
-      if (operators.test(char) || /[\w.]/.test(char)) {
-        start--;
-        continue;
-      }
-      break;
-    }
+    while (start > 0 && expressionCharacters.test(line[start - 1])) start--;
+    while (end < line.length && expressionCharacters.test(line[end])) end++;
 
-    // Expand forward
-    for (; end < line.length; ) {
-      const char = line[end];
-      if (/\s/.test(char)) {
-        let i = end;
-        for (; i < line.length && /\s/.test(line[i]); i++);
-        if (i < line.length && operators.test(line[i])) {
-          end = i;
-          continue;
-        }
-        break;
-      }
-      if (operators.test(char) || /[\w.]/.test(char)) {
-        end++;
-        continue;
-      }
-      break;
-    }
-
-    const expression = line.slice(start, end);
+    const expression = line.slice(start, end).trim();
+    const leadingWhitespace = line.slice(start, wordStart).length;
+    start += leadingWhitespace;
+    end = start + expression.length;
     if (/[+\-*/]/.test(expression)) {
       return { expression, start, end };
     }
