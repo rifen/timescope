@@ -1,6 +1,6 @@
 {
   "name": "timescope",
-  "version": "0.2.26",
+  "version": "0.2.27",
   "packageManager": "pnpm@11.24.0",
   "private": true,
   "workspaces": [
