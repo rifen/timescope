@@ -31,7 +31,22 @@ TimeScope is a multi-package monorepo containing:
 ## Important release rules
 
 - Never release directly from an unreviewed working tree or push release work
-  straight to `main`. Use a branch and pull request.
+  straight to `main`. Use a fresh branch and pull request every time.
+- Direct pushes to `main` and `master` are prohibited. Configure the local guard
+  after cloning:
+
+  ```bash
+  pnpm setup:git-hooks
+  ```
+
+  The `.githooks/pre-push` hook rejects direct pushes to protected branches. Do
+  not bypass it with `--no-verify`.
+- Before starting work, verify the branch:
+
+  ```bash
+  git status --short --branch
+  git switch -c chore/release-vX.Y.Z
+  ```
 - All four `package.json` versions must match: the workspace root, core, nvim,
   and vscode packages.
 - The release tag is immutable in this repository. If a tag points at a failed

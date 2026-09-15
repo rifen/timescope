@@ -4,6 +4,19 @@ This document captures hard-won knowledge about the CI/CD pipeline, publishing w
 
 ---
 
+## 🚨 Mandatory Branch and PR Workflow
+
+- Never commit or push directly to `main` or `master`.
+- Before making changes, create a fresh branch from the current base branch:
+  `git switch -c <type>/<short-description>`.
+- Push only the feature branch and open a pull request; merge only after required
+  checks pass.
+- Run `pnpm setup:git-hooks` once per clone. The repository pre-push hook rejects
+  pushes to `main` and `master` as a local safety net.
+- If the working tree is already on `main`/`master`, stop and create a branch
+  before editing, committing, or pushing. Do not bypass the hook with
+  `--no-verify`.
+
 ## 🔑 Critical Invariants (Do Not Break)
 
 ### Publishing Approach
