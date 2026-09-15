@@ -19,6 +19,10 @@ jobs:
         with:
           persist-credentials: false
 
+      # pnpm must be installed before setup-node configures its pnpm cache.
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+
       - name: Setup Node.js
         uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
         with:
@@ -26,11 +30,9 @@ jobs:
           check-latest: true
           registry-url: "https://registry.npmjs.org"
           cache: 'pnpm'
+
       - name: Upgrade npm to latest
         run: npm install -g npm@latest
-
-      - name: Install pnpm
-        run: npm install -g pnpm@latest
 
       - name: Install dependencies
         run: pnpm install --filter @rifen/timescope-core --ignore-scripts --frozen-lockfile
