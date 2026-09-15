@@ -43,7 +43,7 @@ The `test-data/sample.ts` file contains:
 | New: days | `VALUE_DAYS = 7` | `1w` |
 | New: weeks | `VALUE_WEEKS = 2` | `2w` |
 | New: months | `VALUE_MONTHS = 3` | `3mo` |
-| New: years | `VALUE_YEARS = 1` | `12mo 5d` |
+| New: years | `VALUE_YEARS = 1` | `1y` |
 | Edge: zero | `ZERO = 0` | No hover (minValue = 1) |
 | Edge: large | `VERY_LARGE = 9999999999999` | No hover (maxValue) |
 | Edge: hex | `HEX = 0xFF` | No hover (ignore pattern) |
@@ -62,18 +62,28 @@ While testing in the Extension Development Host:
 
 ### 4. Automated Tests
 
-Run the core test suite:
+Run the complete automated suite from the repository root:
 
 ```bash
-cd /home/rifen/proj/timescope
-pnpm --filter @rifen/timescope-core test
+pnpm test
 ```
 
-Run VS Code extension tests:
+Run the full editor E2E suite:
 
 ```bash
-cd packages/vscode
-npm test
+pnpm test:e2e
+```
+
+For interactive manual testing, use the VS Code helper from the repository root:
+
+```bash
+pnpm test:manual:vscode
+```
+
+For the equivalent Neovim workflow:
+
+```bash
+pnpm test:manual:nvim
 ```
 
 ### 5. Build and Package

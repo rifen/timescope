@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * TimeLens Skill Helper Script
- * Scans paths and prints compact GCF output for AI agent consumption.
+ * TimeScope Skill Helper Script
+ * Scans paths using the core CLI.
  */
 
 const path = require("path");

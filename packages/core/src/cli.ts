@@ -54,8 +54,8 @@ function printHelp(): void {
 TimeScope CLI - AI-native code duration detection
 
 Usage:
-  timelens scan <file-or-dir> [options]
-  timelens parse <expression-or-token> [options]
+  timescope scan <file-or-dir> [options]
+  timescope parse <expression-or-token> [options]
 
 Commands:
   scan <path>          Scan file(s) for duration tokens (timeouts, intervals, TTLs, etc.)
@@ -63,17 +63,17 @@ Commands:
 
 Options:
   --format=<format>    Output format: 'json' or 'text' (default: text)
-  --unit=<unit>        Default unit: 'seconds', 'milliseconds', 'auto'
+  --unit=<unit>        Default unit: any supported unit, or 'auto'
   --min=<number>       Minimum value filter
   --max=<number>       Maximum value filter
   --no-context         Disable contextual keyword inferences
   -h, --help           Show this help message
 
 Examples:
-  timelens scan src/ --format=json
-  timelens scan config.yaml --format=text
-  timelens parse "60 * 60 * 24"
-  timelens parse "30000" --unit=milliseconds
+  timescope scan src/ --format=json
+  timescope scan config.yaml --format=text
+  timescope parse "60 * 60 * 24"
+  timescope parse "30000" --unit=milliseconds
 `);
 }
 
@@ -119,9 +119,22 @@ function parseArgs(args: string[]): {
 
     if (arg.startsWith("--unit=")) {
       const u = arg.split("=")[1];
-      if (!["seconds", "milliseconds", "auto"].includes(u)) {
+      const validUnits = [
+        "seconds",
+        "milliseconds",
+        "microseconds",
+        "nanoseconds",
+        "minutes",
+        "hours",
+        "days",
+        "weeks",
+        "months",
+        "years",
+        "auto",
+      ];
+      if (!validUnits.includes(u)) {
         console.error(
-          `Invalid unit: ${u}. Must be one of: seconds, milliseconds, auto`,
+          `Invalid unit: ${u}. Must be one of: ${validUnits.join(", ")}`,
         );
         process.exit(1);
       }
@@ -209,7 +222,12 @@ export function runCLI(): void {
   }
 
   if (command === "parse") {
-    const detected = detectDuration(target, target, settings);
+    const assignment = target.match(
+      /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*;?\s*$/,
+    );
+    const expression = assignment ? assignment[2] : target;
+    const context = assignment ? target : expression;
+    const detected = detectDuration(expression, context, settings);
     if (!detected) {
       console.error(`Could not detect a valid duration in: "${target}"`);
       process.exit(1);

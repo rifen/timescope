@@ -45,6 +45,8 @@ export interface DetectedDuration {
 
 export interface FormatOptions {
   format: "compact" | "verbose" | "both";
+  showBreakdown?: boolean;
+  showUnitLabel?: boolean;
 }
 
 export interface DetectedItem extends DetectedDuration {

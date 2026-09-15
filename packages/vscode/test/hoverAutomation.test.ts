@@ -252,8 +252,6 @@ function testExtractCandidate() {
       } else {
         const formatted = formatDurationFull(duration.value, duration.unit, {
           format: settings.format,
-          showBreakdown: settings.showBreakdown,
-          showUnitLabel: settings.showUnitLabel,
         });
 
         if (formatted !== tc.expectedFormat) {

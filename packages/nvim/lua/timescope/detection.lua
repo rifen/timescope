@@ -6,19 +6,22 @@ local function to_milliseconds(value, unit)
   if unit == 'seconds' then return value * 1000
   elseif unit == 'milliseconds' then return value
   elseif unit == 'microseconds' then return value / 1000
-  elseif unit == 'nanoseconds' then return value / 1_000_000
+  elseif unit == 'nanoseconds' then return value / 1000000
   end
   return value
 end
 
 -- Format milliseconds to human-readable duration
 local function format_duration(ms)
+  if ms < 0 then
+    return '-' .. format_duration(-ms)
+  end
   if ms < 1 then
     return config.format == 'verbose' and 'less than 1 millisecond' or '<1ms'
   end
 
   local units = {
-    { name = 'year', ms = 31557600000, short = 'y' },
+    { name = 'year', ms = 31536000000, short = 'y' },
     { name = 'week', ms = 604800000, short = 'w' },
     { name = 'day', ms = 86400000, short = 'd' },
     { name = 'hour', ms = 3600000, short = 'h' },

@@ -41,6 +41,43 @@ require('timescope').setup({})
 }
 ```
 
+## Contributor Testing
+
+Install dependencies with `pnpm install`, then run the complete automated suite:
+
+```bash
+pnpm test
+```
+
+This runs the core tests, the Neovim bridge tests, and the VS Code extension-host
+integration suite. To explicitly run the editor smoke tests as well, run:
+
+```bash
+pnpm test:e2e
+```
+
+The E2E command automatically downloads the pinned VS Code test runtime through
+`@vscode/test-electron`, launches Neovim headlessly, loads the actual plugin,
+and verifies a hover result is rendered as virtual text. On Linux CI, run it
+under `xvfb-run -a` when no display is available.
+
+For interactive manual testing:
+
+```bash
+# VS Code: compile, open the workspace, then press F5 and choose the clean host
+pnpm test:manual:vscode
+
+# Neovim: build the bridge and open the sample fixture with the local plugin
+pnpm test:manual:nvim
+```
+
+In the VS Code development host, hover the values in
+`packages/vscode/test-data/sample.ts`. In Neovim, hover or move the cursor over
+values in `packages/nvim/test-data/sample.lua`. Useful Neovim commands are
+`:TimeScopeToggle`, `:TimeScopeReload`, `:TimeScopeSettings`, and
+`:TimeScopeDisable`. The VS Code command palette includes **TimeScope: Dump
+Settings**, **TimeScope: Log Hover Target**, and **TimeScope: Toggle Enabled**.
+
 ## Features
 
 - **Smart detection** — Infers units from context (variable names, comments, file type)

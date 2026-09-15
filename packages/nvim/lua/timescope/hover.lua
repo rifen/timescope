@@ -7,8 +7,6 @@ M.config = {
   format = 'compact',
   minValue = 1,
   maxValue = 31557600000,
-  showBreakdown = true,
-  showUnitLabel = true,
   contextClues = true,
   ignorePatterns = {
     '^0x[0-9a-f]+$',
@@ -170,6 +168,9 @@ function M.show_duration()
   if job > 0 then
     -- Send the JSON payload followed by a newline so the bridge reads a complete line
     vim.fn.chansend(job, input .. "\n")
+    -- The bridge handles one request per line; close stdin so the process exits
+    -- after responding instead of waiting forever for more input.
+    vim.fn.chanclose(job, 'stdin')
     M._pending_job = job
   else
     vim.notify('TimeScope: Failed to start bridge job (job=' .. tostring(job) .. ')', vim.log.levels.ERROR)
