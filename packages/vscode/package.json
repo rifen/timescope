@@ -61,6 +61,7 @@
             "milliseconds",
             "microseconds",
             "nanoseconds",
+            "minutes",
             "hours",
             "days",
             "weeks",
@@ -107,7 +108,24 @@
           "description": "Glob patterns for file types to activate on"
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "command": "timescope.toggle",
+        "title": "TimeScope: Toggle Enabled",
+        "category": "TimeScope"
+      },
+      {
+        "command": "timescope.dumpSettings",
+        "title": "TimeScope: Dump Settings to Output",
+        "category": "TimeScope"
+      },
+      {
+        "command": "timescope.logHoverTarget",
+        "title": "TimeScope: Log Hover Target",
+        "category": "TimeScope"
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc -p ./",
@@ -116,31 +134,16 @@
     "vscode:prepublish": "echo 'Skipping prepublish - build already run in CI'",
     "pretest": "npm run compile && npm run lint",
     "test": "node ./test/runTest.js",
-    "unit-test": "mocha --require ts-node/register test/*.test.ts",
+    "unit-test": "mocha --require ts-node/register test/detect.test.ts test/extension.test.ts",
+    "test:e2e": "npm run build && node ./test/runTest.js",
     "lint": "eslint src --ext .ts --ignore-path .gitignore",
     "quick-test": "bash ./scripts/quick-test.sh",
     "verify-hover": "node ./scripts/verify-hover.js",
     "package": "@vscode/vsce package --no-dependencies",
     "publish": "@vscode/vsce publish --no-dependencies"
   },
-  "commands": [
-    {
-      "command": "timescope.toggle",
-      "title": "TimeScope: Toggle Enabled",
-      "category": "TimeScope"
-    },
-    {
-      "command": "timescope.dumpSettings",
-      "title": "TimeScope: Dump Settings to Output",
-      "category": "TimeScope"
-    },
-    {
-      "command": "timescope.logHoverTarget",
-      "title": "TimeScope: Log Hover Target",
-      "category": "TimeScope"
-    }
-  ],
   "devDependencies": {
+    "@types/chai": "^5.2.3",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
@@ -149,6 +152,7 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@vscode/test-electron": "^2.3.8",
     "@vscode/vsce": "^3.0.0",
+    "chai": "^6.2.2",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "mocha": "^11.8.0",
