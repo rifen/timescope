@@ -13,6 +13,8 @@
     "test:manual:vscode": "pnpm --filter rifen-timescope quick-test",
     "test:manual:nvim": "pnpm --filter timescope-nvim test:manual",
     "lint": "pnpm -r run lint",
+    "security:opengrep": "opengrep scan --config auto --error .",
+    "security:opengrep:server": "opengrep --server",
     "timescope": "node packages/core/dist/cli.js",
     "package:core": "pnpm --filter @rifen/timescope-core run build",
     "package:vscode": "pnpm --filter rifen-timescope run package",
