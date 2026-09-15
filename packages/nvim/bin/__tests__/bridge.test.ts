@@ -175,7 +175,7 @@ describe('TimeLens Neovim Bridge', () => {
     });
 
     it('handles expression evaluation', async () => {
-      const response = await runBridge(JSON.stringify({ token: '60 * 60 * 24', line: 'DAY = 60 * 60 * 24' }));
+      const response = await runBridge(JSON.stringify({ token: '60 * 60 * 24', line: 'DAY_SECONDS = 60 * 60 * 24' }));
       expect(response).not.toBeNull();
       if (response) {
         expect(response.text).toBe('1d');
