@@ -47,6 +47,7 @@ TimeScope is a multi-package monorepo containing:
   git status --short --branch
   git switch -c chore/release-vX.Y.Z
   ```
+
 - All four `package.json` versions must match: the workspace root, core, nvim,
   and vscode packages.
 - The release tag is immutable in this repository. If a tag points at a failed
