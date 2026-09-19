@@ -59,12 +59,23 @@
 
 **Requirements:** Neovim &ge; 0.7 and Node.js &ge; 18.
 
-Install with your plugin manager of choice:
+The plugin lives in this repository at [`packages/nvim`](packages/nvim) and is built from source (the Node.js bridge it drives is generated during the build):
+
+```bash
+git clone https://github.com/rifen/timescope.git ~/src/timescope
+cd ~/src/timescope
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm --filter timescope-nvim build
+```
+
+Then load it from that path with your plugin manager:
 
 **[lazy.nvim](https://github.com/folke/lazy.nvim)**:
 ```lua
 {
-  'rifen/timescope.nvim',
+  dir = '~/src/timescope/packages/nvim',
+  name = 'timescope',
+  event = 'VeryLazy',
   opts = {
     format = 'compact',
   },
@@ -74,7 +85,7 @@ Install with your plugin manager of choice:
 **[packer.nvim](https://github.com/wbthomason/packer.nvim)**:
 ```lua
 use {
-  'rifen/timescope.nvim',
+  '~/src/timescope/packages/nvim',
   config = function()
     require('timescope').setup({
       format = 'compact',

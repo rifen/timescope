@@ -1,9 +1,9 @@
 -- Lazy.nvim plugin spec for TimeScope
--- Add this to your lazy.nvim config:
+-- Add this to your lazy.nvim config, adjusting the path to your clone:
 
 return {
-  'rifen/timescope.nvim',
-  version = '^0.1.0',
+  dir = '~/src/timescope/packages/nvim',
+  name = 'timescope',
   dependencies = {
     'nvim-lua/plenary.nvim' -- optional, for better job control
   },

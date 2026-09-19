@@ -11,13 +11,24 @@ TimeScope eliminates the mental math of converting raw numbers (seconds, millise
 
 ## Installation
 
+The plugin lives in this repository at `packages/nvim` and is built from source (the Node.js bridge it drives is generated during the build):
+
+```bash
+git clone https://github.com/rifen/timescope.git ~/src/timescope
+cd ~/src/timescope
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm --filter timescope-nvim build
+```
+
+Then load it from that path with your plugin manager:
+
 ### lazy.nvim
 
 ```lua
 -- ~/.config/nvim/lua/plugins/timescope.lua
 return {
-  'rifen/timescope.nvim',
-  version = '*',
+  dir = '~/src/timescope/packages/nvim',
+  name = 'timescope',
   event = 'VeryLazy',
   keys = {
     { '<leader>tl', '<cmd>TimeScopeToggle<cr>', desc = 'TimeScope: Toggle' },
@@ -38,7 +49,7 @@ return {
 
 ```lua
 use {
-  'rifen/timescope.nvim',
+  '~/src/timescope/packages/nvim',
   config = function()
     require('timescope').setup({
       format = 'compact',
@@ -117,8 +128,8 @@ The plugin is designed to work seamlessly with lazy.nvim:
 ```lua
 -- ~/.config/nvim/lua/plugins/timescope.lua
 return {
-  'rifen/timescope.nvim',
-  version = '*',
+  dir = '~/src/timescope/packages/nvim',
+  name = 'timescope',
   event = 'VeryLazy',
   keys = {
     { '<leader>tl', '<cmd>TimeScopeToggle<cr>', desc = 'TimeScope: Toggle' },

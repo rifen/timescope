@@ -1,10 +1,11 @@
 -- Example lazy.nvim configuration for TimeScope
 -- Add this to your Lazy.nvim setup in ~/.config/nvim/lua/plugins/timescope.lua
+-- and adjust the path below to your clone of this repository.
 
 return {
   -- TimeScope: hover to see human-readable durations
-  'rifen/timescope.nvim',
-  version = '^0.1.0',
+  dir = '~/src/timescope/packages/nvim',
+  name = 'timescope',
   dependencies = {
     -- Optional: plenary.nvim for enhanced job control
     'nvim-lua/plenary.nvim',
