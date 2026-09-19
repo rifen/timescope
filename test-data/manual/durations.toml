@@ -1,0 +1,15 @@
+# TimeScope manual checks - TOML
+# Neovim: :next / :bnext moves to the next fixture file.
+
+[server]
+port = 8080                 # 2h 14m (not a duration; heuristic seconds)
+timeout = 30                # 30s
+keepAliveTimeout = 60       # 1m (timeout keyword)
+session_ttl = 3600          # 1h (ttl keyword)
+retry_delay_ms = 250        # 250ms
+cache_ttl_seconds = 86400   # 1d
+
+[jobs]
+poll_interval = 60          # 1m (interval keyword)
+max_retries = 5             # 5s (plural "retries" is not a keyword match)
+backoff = 500               # 500ms

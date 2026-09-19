@@ -1,7 +1,0 @@
--- TimeScope manual test fixture
-TIMEOUT_SECONDS = 900
-RETRY_DELAY_MS = 5000
-CACHE_TTL = 60 * 60 * 24
-ONE_HOUR_SECONDS = 60 * 60
-ZERO = 0
-HEX = 0xFF

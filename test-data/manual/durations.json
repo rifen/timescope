@@ -1,0 +1,10 @@
+{
+  "timeout": 30,
+  "keepAliveTimeout": 60,
+  "session_ttl": 3600,
+  "retry_delay_ms": 250,
+  "cache_ttl_seconds": 86400,
+  "poll_interval": 60,
+  "max_retries": 5,
+  "heartbeat": 5000
+}

@@ -8,7 +8,18 @@
       "runtimeExecutable": "${execPath}",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
-        "${workspaceFolder}/test-data/sample.ts"
+        "${workspaceFolder}/../../test-data/manual",
+        "${workspaceFolder}/../../test-data/manual/durations.py",
+        "${workspaceFolder}/../../test-data/manual/durations.ts",
+        "${workspaceFolder}/../../test-data/manual/durations.js",
+        "${workspaceFolder}/../../test-data/manual/durations.go",
+        "${workspaceFolder}/../../test-data/manual/durations.rs",
+        "${workspaceFolder}/../../test-data/manual/durations.java",
+        "${workspaceFolder}/../../test-data/manual/durations.cs",
+        "${workspaceFolder}/../../test-data/manual/durations.yaml",
+        "${workspaceFolder}/../../test-data/manual/durations.json",
+        "${workspaceFolder}/../../test-data/manual/durations.toml",
+        "${workspaceFolder}/../../test-data/manual/durations.lua"
       ],
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "npm:compile"
@@ -21,7 +32,18 @@
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
         "--extensions-dir=${workspaceFolder}/.test-extensions",
-        "${workspaceFolder}/test-data/sample.ts"
+        "${workspaceFolder}/../../test-data/manual",
+        "${workspaceFolder}/../../test-data/manual/durations.py",
+        "${workspaceFolder}/../../test-data/manual/durations.ts",
+        "${workspaceFolder}/../../test-data/manual/durations.js",
+        "${workspaceFolder}/../../test-data/manual/durations.go",
+        "${workspaceFolder}/../../test-data/manual/durations.rs",
+        "${workspaceFolder}/../../test-data/manual/durations.java",
+        "${workspaceFolder}/../../test-data/manual/durations.cs",
+        "${workspaceFolder}/../../test-data/manual/durations.yaml",
+        "${workspaceFolder}/../../test-data/manual/durations.json",
+        "${workspaceFolder}/../../test-data/manual/durations.toml",
+        "${workspaceFolder}/../../test-data/manual/durations.lua"
       ],
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "npm:compile"
@@ -33,9 +55,9 @@
       "runtimeExecutable": "${execPath}",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
-        "--extensionTestsPath=${workspaceFolder}/dist/test"
+        "--extensionTestsPath=${workspaceFolder}/dist-test/test/suite/index.js"
       ],
-      "outFiles": ["${workspaceFolder}/dist/test/**/*.js"],
+      "outFiles": ["${workspaceFolder}/dist-test/**/*.js"],
       "preLaunchTask": "npm:compile"
     }
   ]
