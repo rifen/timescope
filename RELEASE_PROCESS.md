@@ -4,7 +4,7 @@
 
 The package versions in the repository should always match. Update this section
 when a release is completed. The next release currently being prepared is
-**0.2.28**.
+**0.2.29**.
 
 The GitHub Releases page is separate from git tags. It must also be updated for
 every release; do not leave the previous release (for example, `v0.2.26`) as the
@@ -104,11 +104,11 @@ Set the same semantic version in all four manifests:
 - `packages/nvim/package.json`
 - `packages/vscode/package.json`
 
-For example, for `0.2.28`:
+For example, for `0.2.29`:
 
 ```json
 {
-  "version": "0.2.28"
+  "version": "0.2.29"
 }
 ```
 
@@ -314,9 +314,10 @@ Verify that:
 Update this list after each completed release. Use `git tag` and GitHub Releases
 as the source of truth.
 
-- v0.2.28 - Pending PR/release
+- v0.2.29 - In preparation (variables-in-variables and parameter durations)
+- v0.2.28 - Released (npm and GitHub Release)
 - v0.2.27 - Tag exists, but the release workflow failed before publication
-- v0.2.26 - Previous release attempt
+- v0.2.26 - Released (npm and GitHub Release)
 
 ## Automation boundaries
 
