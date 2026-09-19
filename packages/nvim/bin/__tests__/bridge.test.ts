@@ -5,6 +5,8 @@ interface BridgeTest {
   token: string;
   line: string;
   language?: string;
+  assignment?: string;
+  code?: string;
   expectedText?: string;
   expectedHint?: string;
   description: string;
@@ -43,7 +45,7 @@ function runBridge(input: string): Promise<BridgeResponse | null> {
           } else {
             resolve(null);
           }
-        } catch (e) {
+        } catch {
           reject(new Error(`Failed to parse output: ${stdout}`));
         }
       } else {
@@ -195,6 +197,139 @@ const testCases: BridgeTest[] = [
     description: "cache.set ttl kwarg",
   },
   {
+    token: "400",
+    line: "start_to_close_timeout=timedelta(seconds=400)",
+    language: "python",
+    expectedText: "6m 40s",
+    expectedHint: "seconds=",
+    description: "timedelta keyword-argument number",
+  },
+  {
+    token: "timedelta(seconds=400)",
+    line: "start_to_close_timeout=timedelta(seconds=400)",
+    language: "python",
+    expectedText: "6m 40s",
+    expectedHint: "timedelta",
+    description: "timedelta constructor call",
+  },
+  {
+    token: "int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+    line: "COMMIT_TIMER_ARM_ACTIVITY_SECONDS = int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+    code: [
+      "COMMIT_TIMER_ARM_TIMEOUT_SECONDS = 15.0",
+      "COMMIT_TIMER_ARM_ACTIVITY_SECONDS = int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+    ].join("\n"),
+    expectedText: "30s",
+    expectedHint: "COMMIT_TIMER_ARM_ACTIVITY_SECONDS",
+    description: "variable derived from an earlier variable (#26)",
+  },
+  {
+    token: "(",
+    line: "MIN_COMMIT_TIMER_SECONDS = (",
+    code: [
+      "COMMIT_TIMER_SETTLE_SECONDS = 5",
+      "COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS = 15.0",
+      "COMMIT_TIMER_CONFIRM_MARGIN_SECONDS = 10",
+      "MIN_COMMIT_TIMER_SECONDS = (",
+      "    COMMIT_TIMER_SETTLE_SECONDS",
+      "    + int(COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS)",
+      "    + COMMIT_TIMER_CONFIRM_MARGIN_SECONDS",
+      ")",
+    ].join("\n"),
+    expectedText: "30s",
+    expectedHint: "MIN_COMMIT_TIMER_SECONDS",
+    description: "multi-line assignment resolved from document code (#26)",
+  },
+  {
+    token: "(",
+    line: "const CACHE_TTL_SECONDS = (",
+    code: [
+      "const CACHE_TTL_SECONDS = (",
+      "  60 * 60",
+      ")",
+    ].join("\n"),
+    expectedText: "1h",
+    expectedHint: "CACHE_TTL_SECONDS",
+    description: "const multi-line assignment resolved from document code (#26)",
+  },
+  {
+    token: "(",
+    line: "local RETRY_DELAY_SECONDS = (",
+    code: [
+      "local RETRY_DELAY_SECONDS = (",
+      "  60 * 5",
+      ")",
+    ].join("\n"),
+    expectedText: "5m",
+    expectedHint: "RETRY_DELAY_SECONDS",
+    description: "Lua local multi-line assignment resolved from document code (#26)",
+  },
+  {
+    token: "MIN_COMMIT_TIMER_SECONDS",
+    line: "MIN_COMMIT_TIMER_SECONDS = (",
+    code: [
+      "COMMIT_TIMER_SETTLE_SECONDS = 5 -- 5s",
+      "MIN_COMMIT_TIMER_SECONDS = (",
+      "  COMMIT_TIMER_SETTLE_SECONDS -- 5s",
+      "  + 25 -- 25s",
+      ") -- 30s",
+    ].join("\n"),
+    expectedText: "30s",
+    expectedHint: "MIN_COMMIT_TIMER_SECONDS",
+    description: "Lua -- comments are stripped from document code (#26)",
+  },
+  {
+    token: "(",
+    line: "    MIN_COMMIT_TIMER_SECONDS = (",
+    code: [
+      "COMMIT_TIMER_SETTLE_SECONDS = 5",
+      "COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS = 15.0",
+      "COMMIT_TIMER_CONFIRM_MARGIN_SECONDS = 10",
+      "try:",
+      "    MIN_COMMIT_TIMER_SECONDS = (",
+      "        COMMIT_TIMER_SETTLE_SECONDS",
+      "        + int(COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS)",
+      "        + COMMIT_TIMER_CONFIRM_MARGIN_SECONDS",
+      "    )",
+      "except (TypeError, ValueError):",
+      "    raise",
+    ].join("\n"),
+    expectedText: "30s",
+    expectedHint: "MIN_COMMIT_TIMER_SECONDS",
+    description: "indented multi-line assignment resolved from document code (#26)",
+  },
+  {
+    token: "15",
+    assignment: "int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+    line: "    COMMIT_TIMER_ARM_ACTIVITY_SECONDS = int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+    code: [
+      "COMMIT_TIMER_ARM_TIMEOUT_SECONDS = 15.0",
+      "    COMMIT_TIMER_ARM_ACTIVITY_SECONDS = int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+    ].join("\n"),
+    expectedText: "30s",
+    expectedHint: "COMMIT_TIMER_ARM_ACTIVITY_SECONDS",
+    description: "assignment RHS takes precedence over the cursor-local number (#26)",
+  },
+  {
+    token: "15",
+    assignment: "Duration::from_secs(15)",
+    line: "let timeout = Duration::from_secs(15);",
+    expectedText: "15s",
+    expectedHint: "from_secs",
+    description: "falls back to the cursor token when the assignment is unevaluable",
+  },
+  {
+    token: "COMMIT_TIMER_ARM_TIMEOUT_SECONDS",
+    line: "verify(COMMIT_TIMER_ARM_TIMEOUT_SECONDS)",
+    code: [
+      "COMMIT_TIMER_ARM_TIMEOUT_SECONDS = 15.0",
+      "verify(COMMIT_TIMER_ARM_TIMEOUT_SECONDS)",
+    ].join("\n"),
+    expectedText: "15s",
+    expectedHint: "COMMIT_TIMER_ARM_TIMEOUT_SECONDS",
+    description: "variable usage resolved from document code (#26)",
+  },
+  {
     token: "60",
     line: "retry_after = 60",
     expectedText: "60ms",
@@ -245,6 +380,8 @@ describe("TimeLens Neovim Bridge", () => {
             token: tc.token,
             line: tc.line,
             language: tc.language,
+            assignment: tc.assignment,
+            code: tc.code,
           }),
         );
 
