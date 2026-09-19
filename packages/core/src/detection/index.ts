@@ -153,12 +153,84 @@ const LANGUAGE_KEYWORD_OVERRIDES: Record<string, Record<string, string[]>> = {
 
 const MAX_SYMBOL_ENTRIES = 1000;
 const MAX_JOINED_EXPRESSION_LENGTH = 500;
+const DECLARATION_KEYWORDS = ["const", "let", "var", "val", "final", "local"];
 
-// Supported assignment forms: NAME = EXPR, NAME: TYPE = EXPR, and
-// const/let/var/val/final/local declarations. Comparisons (==, <=) never
-// match because a single '=' is required immediately after the name or type.
-const ASSIGNMENT_PATTERN =
-  /^[ \t]*(?:(?:const|let|var|val|final|local)\s+)?([A-Za-z_]\w*)\s*(?::[^=]+?)?=[ \t]*(.+)$/;
+function isIdentifierStart(char: string): boolean {
+  return (
+    (char >= "a" && char <= "z") ||
+    (char >= "A" && char <= "Z") ||
+    char === "_"
+  );
+}
+
+function isIdentifierChar(char: string): boolean {
+  return isIdentifierStart(char) || (char >= "0" && char <= "9");
+}
+
+function isHorizontalSpace(char: string): boolean {
+  return char === " " || char === "\t";
+}
+
+// Trailing punctuation such as `;`, `,`, or `.` is not part of the value.
+function stripTrailingPunctuation(value: string): string {
+  let end = value.length;
+  while (end > 0) {
+    const char = value[end - 1];
+    if (char === ";" || char === "," || char === ".") end -= 1;
+    else break;
+  }
+  return value.slice(0, end);
+}
+
+// Parse `NAME = EXPR`, an optional const/let/var/val/final/local keyword, and
+// an optional `: TYPE` annotation. Hand-written rather than a regular
+// expression so untrusted document text cannot cause polynomial backtracking.
+function parseAssignment(
+  line: string,
+): { name: string; expression: string; expressionStart: number } | null {
+  const equals = line.indexOf("=");
+  if (equals === -1) return null;
+
+  let pos = 0;
+  while (pos < equals && isHorizontalSpace(line[pos])) pos += 1;
+
+  for (const keyword of DECLARATION_KEYWORDS) {
+    if (!line.startsWith(keyword, pos)) continue;
+    let after = pos + keyword.length;
+    if (after < equals && isHorizontalSpace(line[after])) {
+      while (after < equals && isHorizontalSpace(line[after])) after += 1;
+      pos = after;
+    }
+    break;
+  }
+
+  const nameStart = pos;
+  if (pos >= equals || !isIdentifierStart(line[pos])) return null;
+  pos += 1;
+  while (pos < equals && isIdentifierChar(line[pos])) pos += 1;
+  const name = line.slice(nameStart, pos);
+
+  while (pos < equals && isHorizontalSpace(line[pos])) pos += 1;
+  if (pos < equals && line[pos] === ":") {
+    // A typed declaration needs at least one character between the colon and
+    // the assignment operator, so Go-style `:=` is not treated as a type.
+    if (pos + 1 >= equals) return null;
+    pos = equals;
+  } else if (pos !== equals) {
+    return null;
+  }
+
+  let expressionStart = equals + 1;
+  while (
+    expressionStart < line.length &&
+    isHorizontalSpace(line[expressionStart])
+  ) {
+    expressionStart += 1;
+  }
+  if (expressionStart >= line.length) return null;
+
+  return { name, expression: line.slice(expressionStart), expressionStart };
+}
 
 function stripLineComment(line: string): string {
   let commentStart = line.search(/#|\/\//);
@@ -196,10 +268,10 @@ function readAssignment(
   lines: string[],
   startLine: number,
 ): ParsedAssignment | null {
-  const match = ASSIGNMENT_PATTERN.exec(lines[startLine]);
-  if (!match) return null;
+  const head = parseAssignment(lines[startLine]);
+  if (!head) return null;
 
-  let expression = stripLineComment(match[2]);
+  let expression = stripLineComment(head.expression);
   let endLine = startLine;
   while (
     parenDepth(expression) > 0 &&
@@ -211,9 +283,9 @@ function readAssignment(
   }
 
   return {
-    name: match[1],
-    expression: expression.trim().replace(/[;,.]+\s*$/, ""),
-    expressionStart: match[0].length - match[2].length,
+    name: head.name,
+    expression: stripTrailingPunctuation(expression.trim()),
+    expressionStart: head.expressionStart,
     endLine,
   };
 }

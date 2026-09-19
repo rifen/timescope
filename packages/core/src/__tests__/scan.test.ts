@@ -132,6 +132,10 @@ B = A + 1
 
     expect(buildSymbolTable(code).size).toBe(0);
   });
+
+  it('does not treat Go-style short declarations as assignments', () => {
+    expect(buildSymbolTable('x := 5\n').size).toBe(0);
+  });
 });
 
 describe('scanCode - document symbol resolution (#26)', () => {
