@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing release tag to publish (for example, v0.2.28)"
+        description: "Existing release tag to publish (for example, v0.2.29)"
         required: true
         type: string
 
@@ -42,7 +42,9 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Install dependencies
-        run: pnpm install --filter @rifen/timescope-core --ignore-scripts --frozen-lockfile
+        run: |
+          pnpm install --filter @rifen/timescope-core --ignore-scripts \
+            --frozen-lockfile
 
       - name: Build core
         run: pnpm --filter @rifen/timescope-core run build
@@ -57,8 +59,10 @@ jobs:
           echo "Tag version: $TAG_VERSION"
 
           # Check if tag version already exists on npm
-          if npm view @rifen/timescope-core@$TAG_VERSION version 2>/dev/null; then
-            echo "ERROR: Version $TAG_VERSION already exists on npm. Use a new tag."
+          if npm view @rifen/timescope-core@$TAG_VERSION version \
+            2>/dev/null; then
+            echo "ERROR: Version $TAG_VERSION already exists on npm." \
+              "Use a new tag."
             exit 1
           fi
 
@@ -70,7 +74,8 @@ jobs:
       - name: Set core package version
         run: |
           cd packages/core
-          pnpm version "${{ steps.core-version.outputs.new_version }}" --no-git-tag-version --allow-same-version
+          pnpm version "${{ steps.core-version.outputs.new_version }}" \
+            --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
         run: npm publish --provenance --access public
