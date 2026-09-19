@@ -114,7 +114,13 @@ if (dirty.length > 0) {
   fail(`Working tree has uncommitted changes:\n${dirty.join("\n")}`);
 }
 
-git(["fetch", "origin", "--tags", "--quiet"]);
+try {
+  git(["fetch", "--force", "--tags", "origin", "--quiet"]);
+} catch (error) {
+  fail(
+    `git fetch failed. Run git fetch --force --tags origin manually and retry. ${error.message}`,
+  );
+}
 
 const localMain = git(["rev-parse", "main"]);
 const originMain = git(["rev-parse", "origin/main"]);
