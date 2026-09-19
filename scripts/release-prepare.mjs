@@ -50,16 +50,26 @@ function step(number, total, label) {
 }
 
 function git(args, options = {}) {
-  return execFileSync("git", args, {
-    cwd: ROOT,
-    encoding: "utf8",
-    ...options,
-  }).trim();
+  try {
+    return execFileSync("git", args, {
+      cwd: ROOT,
+      encoding: "utf8",
+      ...options,
+    }).trim();
+  } catch (error) {
+    fail(
+      `git ${args.join(" ")} failed:\n${String(error.stdout || error.stderr || error.message).trim()}`,
+    );
+  }
 }
 
 function run(label, command, args) {
   console.log(`    ${label}: $ ${command} ${args.join(" ")}`);
-  execFileSync(command, args, { cwd: ROOT, stdio: "inherit" });
+  try {
+    execFileSync(command, args, { cwd: ROOT, stdio: "inherit" });
+  } catch (error) {
+    fail(`${label} failed (exit ${error.status ?? "?"}).`);
+  }
 }
 
 function readManifestVersion(file) {
@@ -163,7 +173,19 @@ if (compareSemver(version, currentVersion) <= 0) {
 if (npmHasVersion(version)) {
   fail(`${NPM_PACKAGE}@${version} is already published to npm.`);
 }
-if (git(["rev-parse", "-q", "--verify", `refs/tags/v${version}`], { stdio: "ignore" })) {
+let tagExistsLocally = false;
+try {
+  // rev-parse exits non-zero when the ref does not exist, which is the
+  // expected outcome here.
+  execFileSync("git", ["rev-parse", "-q", "--verify", `refs/tags/v${version}`], {
+    cwd: ROOT,
+    stdio: "ignore",
+  });
+  tagExistsLocally = true;
+} catch {
+  tagExistsLocally = false;
+}
+if (tagExistsLocally) {
   fail(`Tag v${version} already exists locally. Tags are immutable; choose another version.`);
 }
 if (git(["ls-remote", "--tags", "origin", `refs/tags/v${version}`]) !== "") {
