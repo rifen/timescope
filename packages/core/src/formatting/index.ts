@@ -39,6 +39,21 @@ const TIMEDELTA_POSITIONAL_ORDER = [
   "weeks",
 ];
 
+/**
+ * Safely evaluates an arithmetic expression or timedelta duration string
+ * without using `eval()` or `new Function()`.
+ *
+ * Invariants:
+ *   - Character whitelist: alphanumeric, arithmetic operators (+, -, *, /),
+ *     parentheses, decimals, commas, equals, and underscores.
+ *   - Maximum length: 500 characters
+ *   - Supports variable substitution from `variables` context.
+ *   - Supports timedelta formats (e.g. `timedelta(seconds=30)`).
+ *
+ * @param expr Arithmetic expression or duration string.
+ * @param variables Optional symbol table for variable lookup.
+ * @returns Evaluated numeric value, or null if invalid/unresolvable.
+ */
 export function evaluateExpression(
   expr: string,
   variables?: VariableContext,
