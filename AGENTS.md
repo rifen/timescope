@@ -150,6 +150,19 @@ timescope/
 
 ---
 
+## 🧩 Parser and Tokenizer Invariants
+
+- **Linear Tokenization over Regexes**: Do not replace linear, character-by-character parsers in `packages/core/src/detection/index.ts` with regular expressions. Untrusted user document code is parsed during hover; backtracking regexes cause polynomial ReDoS and fail CodeQL security analysis.
+- **Assignment Grammar Rules**:
+  - Declaration keywords: `const`, `let`, `var`, `val`, `final`, `local`.
+  - Type annotations: `: TYPE` requires non-empty characters between `:` and `=` (Go `:=` is rejected).
+  - Comparisons (`==`, `<=`, etc.) are explicitly rejected as assignments.
+  - Multi-line assignments are joined only while `parenDepth > 0`, capped at `MAX_JOINED_EXPRESSION_LENGTH` (500 chars).
+- **Safe Expression Evaluation**: `evaluateExpression` in `packages/core/src/formatting/index.ts` uses recursive descent arithmetic with strict character whitelisting and length bounding. Never use `eval()` or `new Function()`.
+- **Test Invariant**: Every parser or tokenizer modification must be accompanied by new or updated unit tests in `packages/core/src/__tests__/`. Run `pnpm --filter @rifen/timescope-core test` to verify.
+
+---
+
 ## 🔐 Security and Static Analysis Invariants
 
 - Run `pnpm security:opengrep` before submitting security-sensitive changes.
