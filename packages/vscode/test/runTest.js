@@ -43,7 +43,7 @@ async function main() {
     extensionTestsPath: path.resolve(
       __dirname,
       "..",
-      "dist",
+      "dist-test",
       "test",
       "suite",
       "index.js",

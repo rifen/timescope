@@ -3,6 +3,7 @@ import {
   type DetectedDuration,
   type DetectedItem,
   type ScanResult,
+  type VariableContext,
   DEFAULT_SETTINGS,
 } from "../types";
 import { evaluateExpression, formatDurationFull } from "../formatting";
@@ -150,15 +151,176 @@ const LANGUAGE_KEYWORD_OVERRIDES: Record<string, Record<string, string[]>> = {
   // PHP (no overrides needed)
 };
 
+const MAX_SYMBOL_ENTRIES = 1000;
+const MAX_JOINED_EXPRESSION_LENGTH = 500;
+const DECLARATION_KEYWORDS = ["const", "let", "var", "val", "final", "local"];
+
+function isIdentifierStart(char: string): boolean {
+  return (
+    (char >= "a" && char <= "z") ||
+    (char >= "A" && char <= "Z") ||
+    char === "_"
+  );
+}
+
+function isIdentifierChar(char: string): boolean {
+  return isIdentifierStart(char) || (char >= "0" && char <= "9");
+}
+
+function isHorizontalSpace(char: string): boolean {
+  return char === " " || char === "\t";
+}
+
+// Trailing punctuation such as `;`, `,`, or `.` is not part of the value.
+function stripTrailingPunctuation(value: string): string {
+  let end = value.length;
+  while (end > 0) {
+    const char = value[end - 1];
+    if (char === ";" || char === "," || char === ".") end -= 1;
+    else break;
+  }
+  return value.slice(0, end);
+}
+
+// Parse `NAME = EXPR`, an optional const/let/var/val/final/local keyword, and
+// an optional `: TYPE` annotation. Hand-written rather than a regular
+// expression so untrusted document text cannot cause polynomial backtracking.
+function parseAssignment(
+  line: string,
+): { name: string; expression: string; expressionStart: number } | null {
+  const equals = line.indexOf("=");
+  if (equals === -1) return null;
+
+  let pos = 0;
+  while (pos < equals && isHorizontalSpace(line[pos])) pos += 1;
+
+  for (const keyword of DECLARATION_KEYWORDS) {
+    if (!line.startsWith(keyword, pos)) continue;
+    let after = pos + keyword.length;
+    if (after < equals && isHorizontalSpace(line[after])) {
+      while (after < equals && isHorizontalSpace(line[after])) after += 1;
+      pos = after;
+    }
+    break;
+  }
+
+  const nameStart = pos;
+  if (pos >= equals || !isIdentifierStart(line[pos])) return null;
+  pos += 1;
+  while (pos < equals && isIdentifierChar(line[pos])) pos += 1;
+  const name = line.slice(nameStart, pos);
+
+  while (pos < equals && isHorizontalSpace(line[pos])) pos += 1;
+  if (pos < equals && line[pos] === ":") {
+    // A typed declaration needs at least one character between the colon and
+    // the assignment operator, so Go-style `:=` is not treated as a type.
+    if (pos + 1 >= equals) return null;
+    pos = equals;
+  } else if (pos !== equals) {
+    return null;
+  }
+
+  let expressionStart = equals + 1;
+  while (
+    expressionStart < line.length &&
+    isHorizontalSpace(line[expressionStart])
+  ) {
+    expressionStart += 1;
+  }
+  if (expressionStart >= line.length) return null;
+
+  return { name, expression: line.slice(expressionStart), expressionStart };
+}
+
+function stripLineComment(line: string): string {
+  let commentStart = line.search(/#|\/\//);
+  // Lua/SQL style `--` comments, but not C-style `i--` or Python `5--3`.
+  const dashes = line.indexOf("--");
+  if (
+    dashes !== -1 &&
+    (dashes + 2 >= line.length ||
+      /\s/.test(line[dashes + 2]) ||
+      line[dashes + 2] === "[")
+  ) {
+    if (commentStart === -1 || dashes < commentStart) commentStart = dashes;
+  }
+  return commentStart === -1 ? line : line.slice(0, commentStart);
+}
+
+function parenDepth(expression: string): number {
+  let depth = 0;
+  for (const char of expression) {
+    if (char === "(") depth++;
+    else if (char === ")") depth--;
+  }
+  return depth;
+}
+
+interface ParsedAssignment {
+  name: string;
+  expression: string;
+  expressionStart: number;
+  endLine: number;
+}
+
+// Parse one assignment, joining continuation lines until parentheses balance.
+function readAssignment(
+  lines: string[],
+  startLine: number,
+): ParsedAssignment | null {
+  const head = parseAssignment(lines[startLine]);
+  if (!head) return null;
+
+  let expression = stripLineComment(head.expression);
+  let endLine = startLine;
+  while (
+    parenDepth(expression) > 0 &&
+    expression.length < MAX_JOINED_EXPRESSION_LENGTH &&
+    endLine + 1 < lines.length
+  ) {
+    endLine += 1;
+    expression += " " + stripLineComment(lines[endLine]);
+  }
+
+  return {
+    name: head.name,
+    expression: stripTrailingPunctuation(expression.trim()),
+    expressionStart: head.expressionStart,
+    endLine,
+  };
+}
+
+// Resolve `NAME = EXPR` assignments in document order so a variable can
+// reference values defined earlier in the same document. Cycles and forward
+// references resolve to nothing since each expression only sees already
+// resolved values.
+export function buildSymbolTable(code: string): Map<string, number> {
+  const variables = new Map<string, number>();
+  const lines = code.split(/\r?\n/);
+
+  for (let line = 0; line < lines.length; line++) {
+    if (variables.size >= MAX_SYMBOL_ENTRIES) break;
+    const assignment = readAssignment(lines, line);
+    if (!assignment) continue;
+
+    line = assignment.endLine;
+    const value = evaluateExpression(assignment.expression, variables);
+    if (value !== null) variables.set(assignment.name, value);
+  }
+
+  return variables;
+}
+
 export function detectDuration(
   token: string,
   lineContext: string,
   settings: Partial<TimeScopeSettings> = {},
   language?: string,
+  variables?: VariableContext,
 ): DetectedDuration | null {
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
 
-  const value = evaluateExpression(token);
+  const value = evaluateExpression(token, variables);
   if (value === null || value <= 0) return null;
 
   // Reject invalid sign before context inference. Contextual units may legitimately
@@ -219,12 +381,142 @@ export function detectDuration(
   return { value, unit, confidence, source: "heuristic" };
 }
 
+function extractPrecedingParameter(line: string, token: string): string | null {
+  let searchPos = 0;
+  while (searchPos < line.length) {
+    const idx = line.indexOf(token, searchPos);
+    if (idx === -1) break;
+
+    const before = line.slice(0, idx).trimEnd();
+    if (before.endsWith("=") || before.endsWith(":")) {
+      const op = before[before.length - 1];
+      const beforeOp = before.slice(0, -1).trimEnd();
+      const idMatch = beforeOp.match(/([a-zA-Z_]\w*)$/);
+      if (idMatch) {
+        const paramStart = idMatch.index ?? 0;
+        const charBeforeParam = beforeOp.slice(0, paramStart).trimEnd().slice(-1);
+        const isArgOrProperty =
+          charBeforeParam === "(" ||
+          charBeforeParam === "," ||
+          charBeforeParam === "{" ||
+          charBeforeParam === "[";
+        if (isArgOrProperty) {
+          return `${idMatch[1]}${op}`;
+        }
+      }
+    }
+    searchPos = idx + token.length;
+  }
+  return null;
+}
+
+function matchUnitSuffix(t: string): DetectedDuration["unit"] | null {
+  const base = t.replace(/[=:]$/, "");
+  const lower = base.toLowerCase();
+
+  // Match unit suffixes: _NS, _US, _MS, _SEC, _S, _MIN, camelCase, or full words
+  if (
+    /(?:^|_)ns$/.test(lower) ||
+    /(?:^|_)ns$/.test(base) ||
+    /[a-z]Ns$/.test(base) ||
+    /nano(?:s|seconds)?$/i.test(lower)
+  ) {
+    return "nanoseconds";
+  }
+  if (
+    /(?:^|_)us$/.test(lower) ||
+    /(?:^|_)us$/.test(base) ||
+    /micro(?:s|seconds)?$/i.test(lower)
+  ) {
+    return "microseconds";
+  }
+  if (
+    /(?:^|_)ms$/.test(lower) ||
+    /(?:^|_)ms$/.test(base) ||
+    /[a-z]Ms$/.test(base) ||
+    /milli(?:s|seconds)?$/i.test(lower)
+  ) {
+    return "milliseconds";
+  }
+  if (
+    /(?:^|_)sec(?:s)?$/.test(lower) ||
+    /(?:^|_)sec(?:s)?$/.test(base) ||
+    /[a-z]Sec(?:s)?$/.test(base) ||
+    /second(?:s)?$/i.test(lower)
+  ) {
+    return "seconds";
+  }
+  if (/(?:^|_)min(?:utes?)?$/.test(lower) || /min(?:utes?)$/.test(lower)) {
+    return "minutes";
+  }
+  if (/(?:^|_)hour(s)?$/.test(lower) || /hour(s)?$/.test(lower)) {
+    return "hours";
+  }
+  if (/(?:^|_)day(s)?$/.test(lower) || /day(s)?$/.test(lower)) {
+    return "days";
+  }
+  if (
+    /(?:^|_)w(?:eeks?)?$/.test(lower) ||
+    /(?:^|_)w(?:eeks?)?$/.test(base) ||
+    /[a-z]Week(s)?$/.test(base)
+  ) {
+    return "weeks";
+  }
+  if (
+    /(?:^|_)mo(?:nth)?s?$/.test(lower) ||
+    /(?:^|_)mo(?:nth)?s?$/.test(base) ||
+    /[a-z]Month(s)?$/.test(base)
+  ) {
+    return "months";
+  }
+  if (/(?:^|_)year(s)?$/.test(lower) || /year(s)?$/.test(lower)) {
+    return "years";
+  }
+  // Standalone '_S' or '_s' suffix (not part of another word like MINUTES)
+  if (
+    /\bs\b/i.test(lower) ||
+    /(?:^|_)s$/i.test(lower) ||
+    /(?:^|_)s$/i.test(base)
+  ) {
+    return "seconds";
+  }
+  return null;
+}
+
 function inferFromContext(
   token: string,
   line: string,
   _settings: TimeScopeSettings,
   language?: string,
 ): DetectedDuration | null {
+  // A timedelta call always yields a duration expressed in seconds, so its
+  // keyword arguments (which can include minutes/hours) must not override the
+  // unit. Only the evaluated value matters here.
+  if (/\btimedelta\s*\(/i.test(token)) {
+    return {
+      value: 0,
+      unit: "seconds",
+      confidence: 0.95,
+      source: "context",
+      contextHint: "timedelta(...)",
+    };
+  }
+
+  // First check if token is directly preceded by a named parameter or property binding (e.g. seconds=400 or ms: 50)
+  const paramToken = extractPrecedingParameter(line, token);
+  if (paramToken) {
+    const unit = matchUnitSuffix(paramToken);
+    if (unit) {
+      return {
+        value: 0,
+        unit,
+        confidence: 0.95,
+        source: "context",
+        contextHint: `unit suffix: "${paramToken}"`,
+      };
+    }
+  }
+
   // Tokenize the line, preserving variable names with underscores
   const tokens = line.split(/[\s=;,:*+/\-()[\]{}'"<>|&!]+/).filter(Boolean);
 
@@ -239,135 +531,11 @@ function inferFromContext(
   const contextTokens = tokens.slice(contextStart, contextEnd);
 
   for (const t of contextTokens) {
-    const lower = t.toLowerCase();
-
-    // Match unit suffixes: _NS, _US, _MS, _SEC, _S, _MIN, camelCase, or full words
-    if (
-      /(?:^|_)ns$/.test(lower) ||
-      /(?:^|_)ns$/.test(t) ||
-      /[a-z]Ns$/.test(t) ||
-      /nano(?:s|seconds)?$/i.test(lower)
-    ) {
+    const unit = matchUnitSuffix(t);
+    if (unit) {
       return {
         value: 0,
-        unit: "nanoseconds",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /(?:^|_)us$/.test(lower) ||
-      /(?:^|_)us$/.test(t) ||
-      /micro(?:s|seconds)?$/i.test(lower)
-    ) {
-      return {
-        value: 0,
-        unit: "microseconds",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /(?:^|_)ms$/.test(lower) ||
-      /(?:^|_)ms$/.test(t) ||
-      /[a-z]Ms$/.test(t) ||
-      /milli(?:s|seconds)?$/i.test(lower)
-    ) {
-      return {
-        value: 0,
-        unit: "milliseconds",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /(?:^|_)sec(?:s)?$/.test(lower) ||
-      /(?:^|_)sec(?:s)?$/.test(t) ||
-      /[a-z]Sec(?:s)?$/.test(t) ||
-      /second(?:s)?$/i.test(lower)
-    ) {
-      return {
-        value: 0,
-        unit: "seconds",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (/(?:^|_)min(?:utes?)?$/.test(lower) || /min(?:utes?)$/.test(lower)) {
-      return {
-        value: 0,
-        unit: "minutes",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (/(?:^|_)hour(s)?$/.test(lower) || /hour(s)?$/.test(lower)) {
-      return {
-        value: 0,
-        unit: "hours",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (/(?:^|_)day(s)?$/.test(lower) || /day(s)?$/.test(lower)) {
-      return {
-        value: 0,
-        unit: "days",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /(?:^|_)w(?:eeks?)?$/.test(lower) ||
-      /(?:^|_)w(?:eeks?)?$/.test(t) ||
-      /[a-z]Week(s)?$/.test(t)
-    ) {
-      return {
-        value: 0,
-        unit: "weeks",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (
-      /(?:^|_)mo(?:nth)?s?$/.test(lower) ||
-      /(?:^|_)mo(?:nth)?s?$/.test(t) ||
-      /[a-z]Month(s)?$/.test(t)
-    ) {
-      return {
-        value: 0,
-        unit: "months",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    if (/(?:^|_)year(s)?$/.test(lower) || /year(s)?$/.test(lower)) {
-      return {
-        value: 0,
-        unit: "years",
-        confidence: 0.95,
-        source: "context",
-        contextHint: `unit suffix: "${t}"`,
-      };
-    }
-    // Standalone '_S' or '_s' suffix (not part of another word like MINUTES)
-    if (
-      /\bs\b/i.test(lower) ||
-      /(?:^|_)s$/i.test(lower) ||
-      /(?:^|_)s$/i.test(t)
-    ) {
-      return {
-        value: 0,
-        unit: "seconds",
+        unit,
         confidence: 0.95,
         source: "context",
         contextHint: `unit suffix: "${t}"`,
@@ -559,11 +727,45 @@ export function scanCode(
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
   const resolvedLanguage = language ?? languageFromFilePath(filePath);
   const lines = code.split(/\r?\n/);
+  const variables = buildSymbolTable(code);
   const items: DetectedItem[] = [];
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
     const rawLine = lines[lineIndex];
     const lineNum = lineIndex + 1;
+
+    // Evaluate whole assignments first so expressions that reference earlier
+    // variables resolve once, instead of reporting each numeric literal.
+    const assignment = readAssignment(lines, lineIndex);
+    if (assignment) {
+      const context =
+        assignment.endLine === lineIndex
+          ? rawLine
+          : `${rawLine.trimEnd()} ${assignment.expression}`;
+      const detected = detectDuration(
+        assignment.expression,
+        context,
+        mergedSettings,
+        resolvedLanguage,
+        variables,
+      );
+      if (detected) {
+        const formatted = formatDurationFull(detected.value, detected.unit, {
+          format: mergedSettings.format || "compact",
+        });
+        items.push({
+          ...detected,
+          token: assignment.expression,
+          line: lineNum,
+          column: assignment.expressionStart + 1,
+          formatted,
+          lineContext: rawLine.trim(),
+          identifier: assignment.name,
+        });
+        lineIndex = assignment.endLine;
+        continue;
+      }
+    }
 
     // Check for variable/key identifier if present
     // Check for variable/key identifier if present (avoid ReDoS-prone regex nesting)
@@ -625,6 +827,7 @@ export function scanCode(
         rawLine,
         mergedSettings,
         resolvedLanguage,
+        variables,
       );
       if (detected) {
         matchedSpans.push({ start: match.index, end: spanEnd });

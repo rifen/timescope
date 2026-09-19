@@ -298,3 +298,127 @@ describe("scanCode - comprehensive scanning", () => {
     expect(result.items[0].unit).toBe("seconds"); // auto detection for 5000 -> seconds
   });
 });
+
+describe("detectDuration - parameter keyword and unit suffixes (#28)", () => {
+  const baseSettings: TimeScopeSettings = {
+    ...DEFAULT_SETTINGS,
+    contextClues: true,
+  };
+
+  test("detects seconds= parameter in timedelta", () => {
+    const line = "start_to_close_timeout=timedelta(seconds=400)";
+    const result = detectDuration("400", line, baseSettings);
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(400);
+    expect(result!.unit).toBe("seconds");
+    expect(result!.contextHint).toBe('unit suffix: "seconds="');
+  });
+
+  test("detects ms= parameter", () => {
+    const line = "retry_interval(ms=50)";
+    const result = detectDuration("50", line, baseSettings);
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(50);
+    expect(result!.unit).toBe("milliseconds");
+    expect(result!.contextHint).toBe('unit suffix: "ms="');
+  });
+
+  test("detects minutes= parameter", () => {
+    const line = "poll(minutes=10)";
+    const result = detectDuration("10", line, baseSettings);
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(10);
+    expect(result!.unit).toBe("minutes");
+    expect(result!.contextHint).toBe('unit suffix: "minutes="');
+  });
+
+  test("detects hours= parameter with spaces around =", () => {
+    const line = "schedule(hours = 2)";
+    const result = detectDuration("2", line, baseSettings);
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(2);
+    expect(result!.unit).toBe("hours");
+    expect(result!.contextHint).toBe('unit suffix: "hours="');
+  });
+
+  test("detects days= parameter", () => {
+    const line = "retention(days=3)";
+    const result = detectDuration("3", line, baseSettings);
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(3);
+    expect(result!.unit).toBe("days");
+    expect(result!.contextHint).toBe('unit suffix: "days="');
+  });
+
+  test("detects weeks= parameter", () => {
+    const line = "cycle(weeks=1)";
+    const result = detectDuration("1", line, baseSettings);
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(1);
+    expect(result!.unit).toBe("weeks");
+    expect(result!.contextHint).toBe('unit suffix: "weeks="');
+  });
+
+  test("detects milliseconds: object parameter", () => {
+    const line = "{ milliseconds: 500 }";
+    const result = detectDuration("500", line, baseSettings);
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(500);
+    expect(result!.unit).toBe("milliseconds");
+    expect(result!.contextHint).toBe('unit suffix: "milliseconds:"');
+  });
+});
+
+describe("detectDuration - variable context (#26)", () => {
+  const baseSettings: TimeScopeSettings = {
+    ...DEFAULT_SETTINGS,
+    contextClues: true,
+  };
+
+  test("resolves an expression that references an earlier variable", () => {
+    const line =
+      "COMMIT_TIMER_ARM_ACTIVITY_SECONDS = int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15";
+    const result = detectDuration(
+      "int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+      line,
+      baseSettings,
+      "python",
+      new Map([["COMMIT_TIMER_ARM_TIMEOUT_SECONDS", 15]]),
+    );
+    expect(result).not.toBeNull();
+    expect(result!.value).toBe(30);
+    expect(result!.unit).toBe("seconds");
+    expect(result!.contextHint).toContain("COMMIT_TIMER_ARM_ACTIVITY_SECONDS");
+  });
+
+  test("resolves a bare variable identifier", () => {
+    const result = detectDuration(
+      "MIN_COMMIT_TIMER_SECONDS",
+      "MIN_COMMIT_TIMER_SECONDS = (",
+      baseSettings,
+      "python",
+      new Map([["MIN_COMMIT_TIMER_SECONDS", 30]]),
+    );
+    expect(result?.value).toBe(30);
+    expect(result?.unit).toBe("seconds");
+  });
+
+  test("returns null when a referenced variable is unknown", () => {
+    expect(
+      detectDuration("MISSING_SECONDS + 1", "X = MISSING_SECONDS + 1", baseSettings),
+    ).toBeNull();
+  });
+
+  test("treats timedelta calls as seconds regardless of keyword order", () => {
+    const line = "delay = timedelta(minutes=5, seconds=30)";
+    const result = detectDuration(
+      "timedelta(minutes=5, seconds=30)",
+      line,
+      baseSettings,
+      "python",
+    );
+    expect(result?.value).toBe(330);
+    expect(result?.unit).toBe("seconds");
+    expect(result?.contextHint).toContain("timedelta");
+  });
+});

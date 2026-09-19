@@ -1,4 +1,4 @@
-export { detectDuration, scanCode } from "./detection";
+export { detectDuration, scanCode, buildSymbolTable } from "./detection";
 export {
   toMilliseconds,
   formatDuration,
@@ -12,5 +12,6 @@ export {
   ScanResult,
   FileScanResult,
   FormatOptions,
+  VariableContext,
   DEFAULT_SETTINGS,
 } from "./types";

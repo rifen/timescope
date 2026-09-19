@@ -130,4 +130,50 @@ describe("evaluateExpression", () => {
     expect(evaluateExpression("import os")).toBeNull();
     expect(evaluateExpression("hello")).toBeNull();
   });
+
+  describe("functions, timedelta, and variable resolution (#26, #28)", () => {
+    it("evaluates int() and float() type casts", () => {
+      expect(evaluateExpression("int(15.0) + 15")).toBe(30);
+      expect(evaluateExpression("int(15.9)")).toBe(15);
+      expect(evaluateExpression("float(5.5) * 2")).toBe(11);
+      expect(evaluateExpression("round(2.6)")).toBe(3);
+    });
+
+    it("evaluates expressions with variables in context", () => {
+      expect(evaluateExpression("A + B", { A: 10, B: 20 })).toBe(30);
+      expect(
+        evaluateExpression("int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15", {
+          COMMIT_TIMER_ARM_TIMEOUT_SECONDS: 15.0,
+        }),
+      ).toBe(30);
+      expect(
+        evaluateExpression(
+          "COMMIT_TIMER_SETTLE_SECONDS + int(COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS) + COMMIT_TIMER_CONFIRM_MARGIN_SECONDS",
+          {
+            COMMIT_TIMER_SETTLE_SECONDS: 5,
+            COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS: 15.0,
+            COMMIT_TIMER_CONFIRM_MARGIN_SECONDS: 10,
+          },
+        ),
+      ).toBe(30);
+    });
+
+    it("returns null when expression has undefined variables", () => {
+      expect(evaluateExpression("A + UNDEFINED", { A: 10 })).toBeNull();
+    });
+
+    it("evaluates timedelta(...) with keyword arguments (#28)", () => {
+      expect(evaluateExpression("timedelta(seconds=400)")).toBe(400);
+      expect(evaluateExpression("timedelta(minutes=5, seconds=30)")).toBe(330);
+      expect(evaluateExpression("timedelta(hours=1, minutes=30)")).toBe(5400);
+      expect(evaluateExpression("timedelta(days=1, seconds=3600)")).toBe(90000);
+      expect(evaluateExpression("timedelta(milliseconds=500)")).toBe(0.5);
+      expect(evaluateExpression("datetime.timedelta(seconds=400)")).toBe(400);
+    });
+
+    it("evaluates timedelta(...) with positional arguments", () => {
+      // timedelta(days=10)
+      expect(evaluateExpression("timedelta(10)")).toBe(864000);
+    });
+  });
 });

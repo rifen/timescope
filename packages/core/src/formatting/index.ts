@@ -1,4 +1,270 @@
-import type { FormatOptions } from "../types";
+import type { FormatOptions, VariableContext } from "../types";
+
+const TIMEDELTA_FACTORS: Record<string, number> = {
+  days: 86400,
+  day: 86400,
+  seconds: 1,
+  second: 1,
+  sec: 1,
+  secs: 1,
+  s: 1,
+  microseconds: 1e-6,
+  microsecond: 1e-6,
+  us: 1e-6,
+  milliseconds: 1e-3,
+  millisecond: 1e-3,
+  ms: 1e-3,
+  minutes: 60,
+  minute: 60,
+  min: 60,
+  mins: 60,
+  m: 60,
+  hours: 3600,
+  hour: 3600,
+  hr: 3600,
+  hrs: 3600,
+  h: 3600,
+  weeks: 604800,
+  week: 604800,
+  w: 604800,
+};
+
+const TIMEDELTA_POSITIONAL_ORDER = [
+  "days",
+  "seconds",
+  "microseconds",
+  "milliseconds",
+  "minutes",
+  "hours",
+  "weeks",
+];
+
+export function evaluateExpression(
+  expr: string,
+  variables?: VariableContext,
+): number | null {
+  // Remove spaces and validate characters
+  const sanitized = expr.replace(/\s+/g, "");
+
+  // Allow digits, operators, parentheses, decimal points, commas, equals, and identifier letters/underscores
+  if (!/^[a-zA-Z0-9_+\-*/().,=]+$/.test(sanitized)) {
+    return null;
+  }
+
+  // Prevent extremely long expressions
+  if (sanitized.length > 500) {
+    return null;
+  }
+
+  try {
+    // Safe arithmetic evaluation using a recursive descent parser
+    // This avoids the security risk of new Function() / eval()
+    const tokens = tokenize(sanitized);
+    return parseTokens(tokens, variables);
+  } catch {
+    return null;
+  }
+}
+
+function parseTokens(
+  tokens: string[],
+  variables?: VariableContext,
+): number | null {
+  let pos = 0;
+
+  function lookupVariable(name: string): number {
+    if (!variables) return NaN;
+    const val =
+      variables instanceof Map ? variables.get(name) : variables[name];
+    if (typeof val === "number" && Number.isFinite(val)) {
+      return val;
+    }
+    return NaN;
+  }
+
+  function parseExpression(): number {
+    let value = parseTerm();
+    while (
+      pos < tokens.length &&
+      (tokens[pos] === "+" || tokens[pos] === "-")
+    ) {
+      const op = tokens[pos++];
+      const right = parseTerm();
+      value = op === "+" ? value + right : value - right;
+    }
+    return value;
+  }
+
+  function parseTerm(): number {
+    let value = parseFactor();
+    while (
+      pos < tokens.length &&
+      (tokens[pos] === "*" || tokens[pos] === "/")
+    ) {
+      const op = tokens[pos++];
+      const right = parseFactor();
+      value = op === "*" ? value * right : value / right;
+    }
+    return value;
+  }
+
+  function parseFactor(): number {
+    if (tokens[pos] === "+" || tokens[pos] === "-") {
+      const sign = tokens[pos++];
+      const value = parseFactor();
+      return sign === "-" ? -value : value;
+    }
+
+    if (tokens[pos] === "(") {
+      pos++; // consume '('
+      const value = parseExpression();
+      if (pos >= tokens.length || tokens[pos] !== ")") {
+        return NaN; // mismatched parentheses
+      }
+      pos++; // consume ')'
+      return value;
+    }
+
+    // Function call or identifier
+    if (/^[a-zA-Z_]/.test(tokens[pos])) {
+      const name = tokens[pos++];
+
+      // Check for function call
+      if (pos < tokens.length && tokens[pos] === "(") {
+        pos++; // consume '('
+        return evaluateFunctionCall(name);
+      }
+
+      // Variable lookup
+      return lookupVariable(name);
+    }
+
+    // Number literal
+    const num = Number(tokens[pos++]);
+    if (Number.isNaN(num)) return NaN;
+    return num;
+  }
+
+  function evaluateFunctionCall(funcName: string): number {
+    const fnLower = funcName.toLowerCase();
+
+    if (fnLower === "timedelta" || fnLower === "datetime.timedelta") {
+      let totalSeconds = 0;
+      let positionalIndex = 0;
+
+      while (pos < tokens.length && tokens[pos] !== ")") {
+        // Check if keyword argument: name = expr
+        if (
+          pos + 1 < tokens.length &&
+          tokens[pos + 1] === "=" &&
+          /^[a-zA-Z_]/.test(tokens[pos])
+        ) {
+          const kwName = tokens[pos++].toLowerCase();
+          pos++; // consume '='
+          const val = parseExpression();
+          if (Number.isNaN(val)) return NaN;
+          const factor = TIMEDELTA_FACTORS[kwName];
+          if (factor !== undefined) {
+            totalSeconds += val * factor;
+          }
+        } else {
+          // Positional argument
+          const val = parseExpression();
+          if (Number.isNaN(val)) return NaN;
+          if (positionalIndex < TIMEDELTA_POSITIONAL_ORDER.length) {
+            const kwName = TIMEDELTA_POSITIONAL_ORDER[positionalIndex++];
+            const factor = TIMEDELTA_FACTORS[kwName];
+            if (factor !== undefined) {
+              totalSeconds += val * factor;
+            }
+          }
+        }
+
+        if (pos < tokens.length && tokens[pos] === ",") {
+          pos++; // consume ','
+        } else {
+          break;
+        }
+      }
+
+      if (pos >= tokens.length || tokens[pos] !== ")") {
+        return NaN;
+      }
+      pos++; // consume ')'
+      return totalSeconds;
+    }
+
+    // Single-argument functions: int, float, round, Math.floor, Math.round
+    const arg = parseExpression();
+    if (pos >= tokens.length || tokens[pos] !== ")") {
+      return NaN;
+    }
+    pos++; // consume ')'
+
+    if (fnLower === "int" || fnLower === "math.trunc") {
+      return Math.trunc(arg);
+    }
+    if (fnLower === "float" || fnLower === "number") {
+      return Number(arg);
+    }
+    if (fnLower === "round" || fnLower === "math.round") {
+      return Math.round(arg);
+    }
+    if (fnLower === "math.floor") {
+      return Math.floor(arg);
+    }
+
+    return NaN;
+  }
+
+  const result = parseExpression();
+  // Ensure all tokens consumed and result is valid
+  if (pos !== tokens.length || !Number.isFinite(result)) {
+    return null;
+  }
+  return result;
+}
+
+function tokenize(expr: string): string[] {
+  const tokens: string[] = [];
+  let i = 0;
+
+  while (i < expr.length) {
+    const char = expr[i];
+
+    // Operators and delimiters
+    if (/[+\-*/(),=]/.test(char)) {
+      tokens.push(char);
+      i++;
+      continue;
+    }
+
+    // Numbers: digits with optional decimal point
+    if (/[\d.]/.test(char)) {
+      let num = "";
+      while (i < expr.length && /[\d.]/.test(expr[i])) {
+        num += expr[i++];
+      }
+      tokens.push(num);
+      continue;
+    }
+
+    // Identifiers: letters, underscores, and dotted names (e.g. datetime.timedelta)
+    if (/[a-zA-Z_]/.test(char)) {
+      let ident = "";
+      while (i < expr.length && /[a-zA-Z0-9_.]/.test(expr[i])) {
+        ident += expr[i++];
+      }
+      tokens.push(ident);
+      continue;
+    }
+
+    // Unknown character: skip
+    i++;
+  }
+
+  return tokens;
+}
 
 const UNITS = [
   { unit: "year", ms: 31536000000, short: "y" },
@@ -96,112 +362,6 @@ export function formatDurationFull(
 ): string {
   const ms = toMilliseconds(value, unit);
   return formatDuration(ms, options);
-}
-
-export function evaluateExpression(expr: string): number | null {
-  // Remove spaces and validate characters
-  const sanitized = expr.replace(/\s+/g, "");
-
-  // Only allow digits, operators, parentheses, and decimal points
-  if (!/^[\d+\-*/().]+$/.test(sanitized)) {
-    return null;
-  }
-
-  // Prevent extremely long expressions
-  if (sanitized.length > 100) {
-    return null;
-  }
-
-  try {
-    // Safe arithmetic evaluation using a simple recursive descent parser
-    // This avoids the security risk of new Function() / eval()
-    const tokens = tokenize(sanitized);
-    return parseTokens(tokens);
-  } catch {
-    return null;
-  }
-}
-
-function parseTokens(tokens: string[]): number | null {
-  let pos = 0;
-
-  function parseExpression(): number {
-    let value = parseTerm();
-    while (
-      pos < tokens.length &&
-      (tokens[pos] === "+" || tokens[pos] === "-")
-    ) {
-      const op = tokens[pos++];
-      const right = parseTerm();
-      value = op === "+" ? value + right : value - right;
-    }
-    return value;
-  }
-
-  function parseTerm(): number {
-    let value = parseFactor();
-    while (
-      pos < tokens.length &&
-      (tokens[pos] === "*" || tokens[pos] === "/")
-    ) {
-      const op = tokens[pos++];
-      const right = parseFactor();
-      value = op === "*" ? value * right : value / right;
-    }
-    return value;
-  }
-
-  function parseFactor(): number {
-    if (tokens[pos] === "+" || tokens[pos] === "-") {
-      const sign = tokens[pos++];
-      const value = parseFactor();
-      return sign === "-" ? -value : value;
-    }
-    if (tokens[pos] === "(") {
-      pos++; // consume '('
-      const value = parseExpression();
-      if (pos >= tokens.length || tokens[pos] !== ")") {
-        return NaN; // mismatched parentheses
-      }
-      pos++; // consume ')'
-      return value;
-    }
-    // Must be a number
-    const num = Number(tokens[pos++]);
-    if (Number.isNaN(num)) return NaN;
-    return num;
-  }
-
-  const result = parseExpression();
-  // Ensure all tokens consumed and result is valid
-  if (pos !== tokens.length || !Number.isFinite(result)) {
-    return null;
-  }
-  return result;
-}
-
-function tokenize(expr: string): string[] {
-  const tokens: string[] = [];
-  let current = "";
-
-  for (let i = 0; i < expr.length; i++) {
-    const char = expr[i];
-    if (/[\d.]/.test(char)) {
-      current += char;
-    } else if (/[+\-*/()]/.test(char)) {
-      if (current) {
-        tokens.push(current);
-        current = "";
-      }
-      tokens.push(char);
-    }
-  }
-
-  if (current) {
-    tokens.push(current);
-  }
-
-  return tokens;
 }
 
 function computeBreakdown(

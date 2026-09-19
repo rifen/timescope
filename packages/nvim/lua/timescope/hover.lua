@@ -114,11 +114,17 @@ function M.show_duration()
 
   -- Call Node.js bridge
   local filetype = vim.bo.filetype
+  -- Send the whole buffer so the bridge can resolve constants and variables
+  -- declared earlier in the file (#26), plus the assignment RHS so the whole
+  -- expression is evaluated (matching the VS Code extension).
+  local code = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
   local input = vim.fn.json_encode({
     token = token,
     line = line,
     language = filetype,
     settings = M.config,
+    assignment = M.get_assignment_expression(line),
+    code = code,
   })
 
   local job = vim.fn.jobstart({ 'node', bridge_path }, {
@@ -156,12 +162,15 @@ function M.show_duration()
       M._pending_job = nil
     end,
     on_stderr = function(_, data)
-      if data and #data > 0 then
-        vim.notify('TimeScope bridge stderr: ' .. table.concat(data), vim.log.levels.WARN)
+      -- Neovim reports a closed stream as {''}; ignore empty chunks.
+      local message = table.concat(data or {})
+      if message ~= '' then
+        vim.notify('TimeScope bridge stderr: ' .. message, vim.log.levels.WARN)
       end
     end,
-    on_exit = function(_, code)
-      vim.notify('TimeScope bridge exited with code: ' .. tostring(code), vim.log.levels.DEBUG)
+    on_exit = function()
+      -- The bridge exits after every request by design; clearing the pending
+      -- job is all that is needed (notifying here would spam every hover).
       M._pending_job = nil
     end
   })
@@ -179,14 +188,29 @@ end
 
 M._pending_job = nil
 
+-- Extract the token the cursor is on. Prefers the numeric/operator expression
+-- under the cursor; falls back to the right-hand side of an assignment so
+-- keyword arguments and constructor calls such as
+-- `timeout=timedelta(seconds=400)` can be evaluated by the Node bridge.
 function M.get_token_at_cursor(line, col)
-  -- Find the full expression that contains the cursor position
-  -- An expression can include numbers, operators (+ - * /), parentheses, and spaces
+  local numeric = M.get_numeric_expression(line, col)
+  if numeric then
+    return numeric
+  end
+  local assignment = M.get_assignment_expression(line)
+  if assignment then
+    return assignment
+  end
+  return M.get_identifier_at_cursor(line, col)
+end
+
+-- Numbers, arithmetic operators and whitespace around the cursor. Parentheses
+-- terminate the expression so a closing `)` is never glued onto a value.
+function M.get_numeric_expression(line, col)
   local expr_start = nil
   for i = col + 1, 1, -1 do
     local ch = line:sub(i, i)
-    -- Match digits, +, -, *, /, (, ), ., whitespace
-    if ch:find('[0-9+%-*/().%s]') then
+    if ch:find('[0-9+%-*.%s]') then
       expr_start = i
     else
       break
@@ -196,7 +220,7 @@ function M.get_token_at_cursor(line, col)
   local expr_end = nil
   for i = col + 1, #line do
     local ch = line:sub(i, i)
-    if ch:find('[0-9+%-*/().%s]') then
+    if ch:find('[0-9+%-*.%s]') then
       expr_end = i
     else
       break
@@ -214,6 +238,53 @@ function M.get_token_at_cursor(line, col)
   end
 
   return expr
+end
+
+-- Right-hand side of `NAME = EXPR`, including const/let/var declarations.
+function M.get_assignment_expression(line)
+  local body = (line:gsub('^%s*(const|let|var|val|final|local)%s+', '', 1))
+  local expr = body:match('^%s*[%a_][%w_]*%s*=%s*(.+)$')
+  if not expr then
+    return nil
+  end
+
+  expr = expr:gsub('%s*#.*$', '')
+  expr = expr:gsub('%s*//.*$', '')
+  expr = expr:gsub('%s*%-%-.*$', '')
+  expr = expr:gsub('[;,]+%s*$', '')
+  expr = expr:gsub('%s*[;,]+%s*$', '')
+  expr = expr:match('^%s*(.-)%s*$')
+  if expr == '' then
+    return nil
+  end
+  return expr
+end
+
+-- Identifier under the cursor. The bridge resolves it against constants
+-- declared elsewhere in the buffer.
+function M.get_identifier_at_cursor(line, col)
+  local start_col = nil
+  for i = col + 1, 1, -1 do
+    if line:sub(i, i):find('[%w_]') then
+      start_col = i
+    else
+      break
+    end
+  end
+  if not start_col then
+    return nil
+  end
+
+  local end_col = start_col
+  for i = start_col + 1, #line do
+    if line:sub(i, i):find('[%w_]') then
+      end_col = i
+    else
+      break
+    end
+  end
+
+  return line:sub(start_col, end_col)
 end
 
 M.namespace = vim.api.nvim_create_namespace('timescope')

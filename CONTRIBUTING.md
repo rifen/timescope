@@ -113,7 +113,7 @@ For interactive debugging during development:
   ```bash
   pnpm test:manual:vscode
   ```
-  This opens a clean VS Code extension development host. Hover over values in `packages/vscode/test-data/sample.ts`. You can also test commands in the Command Palette:
+  This opens a clean VS Code extension development host. Hover over values in the shared fixtures under `test-data/manual/` (Python, TypeScript, JavaScript, Go, Rust, Java, C#, YAML, JSON, TOML, Lua); each line's trailing comment states the expected result. You can also test commands in the Command Palette:
   - `TimeScope: Toggle Enabled`
   - `TimeScope: Dump Settings to Output`
   - `TimeScope: Log Hover Target`
@@ -122,7 +122,7 @@ For interactive debugging during development:
   ```bash
   pnpm test:manual:nvim
   ```
-  This builds the Node.js bridge and launches Neovim with `packages/nvim/test-data/sample.lua`. Move the cursor over numbers to verify virtual text. Available commands include:
+  This builds the Node.js bridge and launches Neovim with the shared fixtures from `test-data/manual/` (use `:next` / `:bnext` to cycle). Move the cursor over values to verify virtual text. Available commands include:
   - `:TimeScopeToggle`
   - `:TimeScopeSettings`
   - `:TimeScopeReload`

@@ -21,7 +21,9 @@ suite("Extension Test Suite", () => {
     const document = {
       fileName: "/tmp/timescope-e2e.ts",
       languageId: "typescript",
+      lineCount: 1,
       lineAt: () => ({ text: line }),
+      getText: () => line,
     } as unknown as vscode.TextDocument;
 
     const hover = provider.provideHover(
