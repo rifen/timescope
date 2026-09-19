@@ -67,3 +67,5 @@ export interface ScanResult {
 export interface FileScanResult extends ScanResult {
   filePath: string;
 }
+
+export type VariableContext = Record<string, number> | Map<string, number>;

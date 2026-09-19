@@ -1,4 +1,5 @@
 import {
+  buildSymbolTable,
   detectDuration,
   formatDurationFull,
   type TimeScopeSettings,
@@ -329,5 +330,49 @@ describe("Automated Hover Tests", () => {
         }
       }
     });
+  });
+});
+
+describe("Document hover resolution (#26, #28)", () => {
+  const document = [
+    "COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS = 15.0",
+    "COMMIT_TIMER_SETTLE_SECONDS = 5",
+    "COMMIT_TIMER_CONFIRM_MARGIN_SECONDS = 10",
+    "COMMIT_TIMER_ARM_TIMEOUT_SECONDS = 15.0",
+    "COMMIT_TIMER_ARM_ACTIVITY_SECONDS = int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15",
+    "MIN_COMMIT_TIMER_SECONDS = (",
+    "    COMMIT_TIMER_SETTLE_SECONDS",
+    "    + int(COMMIT_TIMER_CONFIRM_TIMEOUT_SECONDS)",
+    "    + COMMIT_TIMER_CONFIRM_MARGIN_SECONDS",
+    ")",
+  ];
+  const symbols = buildSymbolTable(document.join("\n"));
+
+  function hoverFormat(token: string, line: string): string | null {
+    const duration = detectDuration(token, line, settings, "python", symbols);
+    return duration
+      ? formatDurationFull(duration.value, duration.unit, {
+          format: settings.format,
+        })
+      : null;
+  }
+
+  it("resolves a variable defined from an earlier variable", () => {
+    expect(
+      hoverFormat("int(COMMIT_TIMER_ARM_TIMEOUT_SECONDS) + 15", document[4]),
+    ).toBe("30s");
+  });
+
+  it("resolves a multi-line parenthesized assignment", () => {
+    expect(hoverFormat("MIN_COMMIT_TIMER_SECONDS", document[5])).toBe("30s");
+  });
+
+  it("resolves timedelta keyword arguments", () => {
+    expect(
+      hoverFormat(
+        "timedelta(seconds=400)",
+        "start_to_close_timeout=timedelta(seconds=400)",
+      ),
+    ).toBe("6m 40s");
   });
 });
