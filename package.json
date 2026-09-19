@@ -13,6 +13,8 @@
     "test:manual:vscode": "pnpm --filter rifen-timescope quick-test",
     "test:manual:nvim": "pnpm --filter timescope-nvim test:manual",
     "lint": "pnpm -r run lint",
+    "release:prepare": "node scripts/release-prepare.mjs",
+    "release:check-versions": "node scripts/check-versions.mjs",
     "security:opengrep": "opengrep scan --config auto --error .",
     "security:opengrep:server": "opengrep --server",
     "setup:git-hooks": "sh ./scripts/setup-git-hooks.sh",

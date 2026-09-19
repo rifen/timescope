@@ -151,6 +151,29 @@ const LANGUAGE_KEYWORD_OVERRIDES: Record<string, Record<string, string[]>> = {
   // PHP (no overrides needed)
 };
 
+/**
+ * ============================================================================
+ * PARSER & DETECTION ARCHITECTURAL INVARIANTS (Do Not Break)
+ * ============================================================================
+ * 1. LINEAR TOKENIZATION (NO BACKTRACKING REGEXES):
+ *    All parsing of arbitrary code strings must use deterministic, linear
+ *    character-by-character scanning or bounded regexes to avoid polynomial
+ *    ReDoS (Regular Expression Denial of Service). Do NOT replace linear
+ *    parsers with complex regular expressions.
+ *
+ * 2. ASSIGNMENT GRAMMAR:
+ *    - Optional declaration keywords: const, let, var, val, final, local
+ *    - Identifier: [a-zA-Z_][a-zA-Z0-9_]*
+ *    - Optional type annotation: ': Type' (where ':' and '=' MUST have at
+ *      least one non-empty type character between them to reject Go ':=').
+ *    - Assignment operator: '=' (comparisons '==', '<=', etc. are rejected).
+ *
+ * 3. BOUNDED LIMITS:
+ *    - Symbol table max entries: MAX_SYMBOL_ENTRIES (1000)
+ *    - Joined multi-line expression max length: MAX_JOINED_EXPRESSION_LENGTH (500)
+ * ============================================================================
+ */
+
 const MAX_SYMBOL_ENTRIES = 1000;
 const MAX_JOINED_EXPRESSION_LENGTH = 500;
 const DECLARATION_KEYWORDS = ["const", "let", "var", "val", "final", "local"];
@@ -171,7 +194,12 @@ function isHorizontalSpace(char: string): boolean {
   return char === " " || char === "\t";
 }
 
-// Trailing punctuation such as `;`, `,`, or `.` is not part of the value.
+/**
+ * Strips trailing statement/expression punctuation (';', ',', '.') from a value.
+ *
+ * Invariant:
+ * Operates in linear time from end of string without regular expressions.
+ */
 function stripTrailingPunctuation(value: string): string {
   let end = value.length;
   while (end > 0) {
@@ -182,9 +210,23 @@ function stripTrailingPunctuation(value: string): string {
   return value.slice(0, end);
 }
 
-// Parse `NAME = EXPR`, an optional const/let/var/val/final/local keyword, and
-// an optional `: TYPE` annotation. Hand-written rather than a regular
-// expression so untrusted document text cannot cause polynomial backtracking.
+/**
+ * Parses a single line for an assignment statement.
+ *
+ * Supported forms:
+ *   - `NAME = EXPR`
+ *   - `const|let|var|val|final|local NAME = EXPR`
+ *   - `NAME: TYPE = EXPR`
+ *   - `const NAME: TYPE = EXPR`
+ *
+ * Rejection invariants:
+ *   - Go-style walrus declarations (`:=`) are explicitly rejected.
+ *   - Equality/comparison operators (`==`, `!=`, `<=`, `>=`) are rejected.
+ *   - Uses linear character scanning to prevent polynomial ReDoS on untrusted input.
+ *
+ * @param line Single line of source code.
+ * @returns Parsed assignment name, expression, and expression start index, or null if not an assignment.
+ */
 function parseAssignment(
   line: string,
 ): { name: string; expression: string; expressionStart: number } | null {
@@ -232,6 +274,15 @@ function parseAssignment(
   return { name, expression: line.slice(expressionStart), expressionStart };
 }
 
+/**
+ * Strips single-line comments from code while avoiding false positives.
+ *
+ * Supported comment styles:
+ *   - `#` (Python, Shell, Ruby, YAML)
+ *   - `//` (JS, TS, C, C++, Go, Rust, Java, C#)
+ *   - `--` (Lua, SQL) - only when followed by whitespace, bracket, or end-of-line
+ *     to prevent stripping arithmetic like `i--` or `5--3`.
+ */
 function stripLineComment(line: string): string {
   let commentStart = line.search(/#|\/\//);
   // Lua/SQL style `--` comments, but not C-style `i--` or Python `5--3`.
@@ -247,6 +298,10 @@ function stripLineComment(line: string): string {
   return commentStart === -1 ? line : line.slice(0, commentStart);
 }
 
+/**
+ * Computes net parentheses depth `(` vs `)`.
+ * Used to determine if an assignment continues across multiple lines.
+ */
 function parenDepth(expression: string): number {
   let depth = 0;
   for (const char of expression) {
@@ -263,7 +318,15 @@ interface ParsedAssignment {
   endLine: number;
 }
 
-// Parse one assignment, joining continuation lines until parentheses balance.
+/**
+ * Parses an assignment statement across multiple lines until parentheses balance
+ * or max length is reached.
+ *
+ * Invariants:
+ *   - Comments are stripped from continuation lines.
+ *   - Joins lines with a single space while `parenDepth > 0`.
+ *   - Caps joined length at `MAX_JOINED_EXPRESSION_LENGTH` (500 chars).
+ */
 function readAssignment(
   lines: string[],
   startLine: number,
@@ -290,10 +353,18 @@ function readAssignment(
   };
 }
 
-// Resolve `NAME = EXPR` assignments in document order so a variable can
-// reference values defined earlier in the same document. Cycles and forward
-// references resolve to nothing since each expression only sees already
-// resolved values.
+/**
+ * Builds a symbol table of variable definitions from a source document.
+ *
+ * Invariants:
+ *   - Resolves `NAME = EXPR` in document order (top to bottom).
+ *   - Supports referencing earlier resolved variables.
+ *   - Cycles and forward references resolve to nothing (safe evaluation).
+ *   - Caps total entries at `MAX_SYMBOL_ENTRIES` (1000) for performance.
+ *
+ * @param code Entire document text.
+ * @returns Map of variable names to their evaluated numeric values.
+ */
 export function buildSymbolTable(code: string): Map<string, number> {
   const variables = new Map<string, number>();
   const lines = code.split(/\r?\n/);

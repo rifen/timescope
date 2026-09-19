@@ -1,0 +1,80 @@
+---
+name: Cut Release
+
+# One-click release gate: verifies the requested version is consistent and
+# free, then tags main. The tag push triggers "Publish Packages", which
+# publishes @rifen/timescope-core to npm and creates the GitHub Release with
+# the VSIX attached.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without v (for example, 0.2.30)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Validate requested version
+        run: |
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "Version must be X.Y.Z, got: $VERSION" >&2
+            exit 1
+          }
+
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version: 22.x
+          check-latest: true
+
+      - name: Verify manifests match the requested version
+        run: node scripts/check-versions.mjs --expect "$VERSION"
+
+      - name: Verify the tag and npm version are free
+        run: |
+          if git ls-remote --exit-code --tags origin \
+            "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists on origin;" \
+              "tags are immutable." >&2
+            exit 1
+          fi
+          if npm view "@rifen/timescope-core@$VERSION" version \
+            >/dev/null 2>&1; then
+            echo "Version $VERSION is already published to npm." >&2
+            exit 1
+          fi
+
+      - name: Create the annotated tag on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/tags" \
+            -f tag="v$VERSION" \
+            -f message="Release version $VERSION" \
+            -f object="$SHA" \
+            -f type="commit" \
+            --jq .sha)"
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/v$VERSION" \
+            -f sha="$TAG_SHA" > /dev/null
+          echo "Created refs/tags/v$VERSION at $SHA"
+
+      - name: Confirm the tag is on origin
+        run: |
+          git ls-remote --tags origin "refs/tags/v$VERSION" \
+            | grep -q "refs/tags/v$VERSION"
