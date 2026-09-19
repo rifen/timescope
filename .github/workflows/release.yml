@@ -80,3 +80,53 @@ jobs:
       - name: Publish to npm
         run: npm publish --provenance --access public
         working-directory: packages/core
+
+  github-release:
+    needs: publish-core
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.release_tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.release_tag || github.ref }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+
+      - name: Setup Node.js
+        uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version: 22.x
+          check-latest: true
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --ignore-scripts \
+            --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm -r run build
+
+      - name: Package the VSIX
+        run: |
+          cd packages/vscode
+          npx @vscode/vsce package --no-dependencies \
+            --out "${{ github.workspace }}/timescope.vsix"
+
+      - name: Create the GitHub Release with the VSIX
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" --json id >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists;" \
+              "immutable releases prevent asset changes."
+          else
+            gh release create "$TAG" \
+              "${{ github.workspace }}/timescope.vsix" \
+              --title "TimeScope $TAG" \
+              --generate-notes \
+              --verify-tag
+          fi
