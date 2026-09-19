@@ -1,5 +1,9 @@
 import * as vscode from "vscode";
-import { detectDuration, formatDurationFull } from "@rifen/timescope-core";
+import {
+  buildSymbolTable,
+  detectDuration,
+  formatDurationFull,
+} from "@rifen/timescope-core";
 import { getSettings } from "../config/settings.js";
 
 // Match the document path against configured file-type glob patterns.
@@ -92,12 +96,55 @@ export class DurationHoverProvider implements vscode.HoverProvider {
       return null;
     }
 
-    const { token, range } = candidate;
+    const { token } = candidate;
+    let range = candidate.range;
     const sanitized = this.stripComments(token).trim();
     this.log("sanitized token", sanitized);
 
     const language = document.languageId;
-    const duration = detectDuration(sanitized, lineText, settings, language);
+    // Resolve constants declared earlier in the document so assignments that
+    // reference other variables (and multi-line expressions) evaluate.
+    const variables = buildSymbolTable(document.getText());
+    let duration = detectDuration(
+      sanitized,
+      lineText,
+      settings,
+      language,
+      variables,
+    );
+
+    if (!duration) {
+      // The whole expression may be unevaluable (for example
+      // `let t = Duration::from_secs(15)`); retry the word under the cursor
+      // when it is a resolved symbol or when the line context identifies a
+      // unit, so ignored shapes (quoted dates, IPs) do not start hovering.
+      const wordRange = this.getWordRangeAtPosition(
+        lineText,
+        position.character,
+      );
+      const word = wordRange
+        ? lineText.slice(wordRange.start, wordRange.end)
+        : null;
+      if (word) {
+        const retry = detectDuration(
+          word,
+          lineText,
+          settings,
+          language,
+          variables,
+        );
+        if (retry && (variables.has(word) || retry.source === "context")) {
+          duration = retry;
+          if (wordRange) {
+            range = new vscode.Range(
+              new vscode.Position(position.line, wordRange.start),
+              new vscode.Position(position.line, wordRange.end),
+            );
+          }
+        }
+      }
+    }
+
     if (!duration) {
       this.log("no detection result");
       return null;
@@ -127,7 +174,7 @@ export class DurationHoverProvider implements vscode.HoverProvider {
     this.log("extractCandidate", { line, charPos });
 
     const assignmentMatch = line.match(
-      /^(\s*)(?:(const|let|var|val|final)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/,
+      /^(\s*)(?:(const|let|var|val|final|local)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/,
     );
     if (assignmentMatch) {
       // Regex groups: 1=leading, 2=keyword, 3=varName, 4=expression
@@ -262,6 +309,7 @@ export class DurationHoverProvider implements vscode.HoverProvider {
   private stripComments(expr: string): string {
     let result = expr.replace(/\s*#[^\n]*/g, "");
     result = result.replace(/\s*\/\/.*$/gm, "");
+    result = result.replace(/\s*--(?=\s|\[|$).*$/gm, "");
     result = result.replace(/\/\*[\s\S]*?\*\//g, "");
     return result.trim();
   }
