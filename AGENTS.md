@@ -83,7 +83,8 @@ This document captures hard-won knowledge about the CI/CD pipeline, publishing w
 !extension/timescope.ico
 ```
 
-- Excludes everything by default (`*`)
+- Excludes everything by default (`**`) — a bare `*` does not cross `/` in
+  vsce's minimatch and silently leaks nested directories into the VSIX
 - Explicitly includes `dist/**` and the icon
 - Without `!dist/**`, vsce packages nothing
 

@@ -1,6 +1,6 @@
-# Exclude everything by default
-*
-
+# Exclude everything by default. Use `**`: a bare `*` does not cross `/` in
+# vsce's minimatch and silently leaks nested directories into the VSIX.
+**
 # Essential extension metadata files
 !package.json
 !README.md
@@ -11,9 +11,6 @@
 !dist/**
 # Explicitly include node_modules inside dist (VS Code defaults exclude node_modules)
 !dist/node_modules/**
-
-# Source TypeScript files (optional, keep if needed for debugging)
-!src/**/*.ts
 
 # Include the extension icon
 !extension/timescope.ico
