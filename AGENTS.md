@@ -16,9 +16,6 @@ This document captures hard-won knowledge about the CI/CD pipeline, publishing w
 - If the working tree is already on `main`/`master`, stop and create a branch
   before editing, committing, or pushing. Do not bypass the hook with
   `--no-verify`.
-- Exception (release bot only): the **Cut Release** workflow pushes an
-  automated version-bump commit to `main` (manifest versions only) before
-  tagging. Humans still use branches and pull requests for everything else.
 
 ## 🔑 Critical Invariants (Do Not Break)
 
