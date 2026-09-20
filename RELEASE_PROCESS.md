@@ -15,7 +15,7 @@ pnpm release:prepare 0.2.30
 | - | ---- | --- | ---------------- |
 | 1 | Branch, bump versions, validate, open PR | human or LLM | `pnpm release:prepare 0.2.30` |
 | 2 | Review and merge the release PR | human | GitHub UI |
-| 3 | Tag, publish to npm, GitHub Release + VSIX | GitHub Actions | Actions → **Cut Release** → *Run workflow* → version `0.2.30` |
+| 3 | Tag, publish to npm, GitHub Release + VSIX, Neovim artifact | GitHub Actions | Actions → **Cut Release** → *Run workflow* → version `0.2.30` |
 | 4 | Publish the VSIX to the Marketplace | human | step 4 below |
 | 5 | Verify | human or LLM | step 5 below |
 
@@ -123,6 +123,9 @@ tag and npm version are free, then creates the annotated tag `v<version>` on
 1. `publish-core` publishes `@rifen/timescope-core` to npm with provenance.
 2. `github-release` builds the VSIX and creates the GitHub Release with the
    VSIX attached at creation (releases here are immutable).
+3. `github-release` also publishes the Neovim artifact: an orphan branch
+   `nvim` containing the plugin plus the prebuilt Node.js bridge, force-pushed
+   and tagged `nvim-v<version>` so users install with a one-line plugin spec.
 
 Monitor:
 
@@ -151,6 +154,7 @@ npx @vscode/vsce publish --no-dependencies --packagePath timescope.vsix
 npm view @rifen/timescope-core version   # -> 0.2.30
 gh release view v0.2.30                  # Latest, timescope.vsix attached
 git ls-remote --tags origin v0.2.30
+git ls-remote --tags origin nvim-v0.2.30
 ```
 
 Also confirm the Marketplace version matches, then update the Release History
@@ -227,6 +231,7 @@ Automated:
 - CI tests, builds, E2E checks, and VSIX artifact creation
 - npm publication of `@rifen/timescope-core` after a release tag
 - GitHub Release creation with the VSIX attached
+- Neovim artifact branch (`nvim`) and `nvim-v*` tags
 - Release preparation (branch, version bump, PR) via `pnpm release:prepare`
 - Tag creation via the **Cut Release** workflow
 

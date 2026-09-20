@@ -130,3 +130,44 @@ jobs:
               --generate-notes \
               --verify-tag
           fi
+
+      - name: Publish the Neovim artifact branch and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARTIFACT_DIR="${{ runner.temp }}/nvim-artifact"
+          rm -rf "$ARTIFACT_DIR" && mkdir -p "$ARTIFACT_DIR/bin"
+          cp -r packages/nvim/lua "$ARTIFACT_DIR/lua"
+          cp packages/nvim/bin/timescope-bridge.js "$ARTIFACT_DIR/bin/"
+          rm -f "$ARTIFACT_DIR/lua/timescope/lazy.lua" \
+            "$ARTIFACT_DIR/lua/timescope/lazy-example.lua"
+          {
+            echo "# TimeScope for Neovim (prebuilt)"
+            echo ""
+            echo "Install with lazy.nvim:"
+            echo ""
+            echo '```lua'
+            echo "{ 'rifen/timescope', tag = 'nvim-${TAG}' }"
+            echo '```'
+            echo ""
+            echo "Requires Neovim >= 0.7 and Node.js >= 18."
+          } > "$ARTIFACT_DIR/README.md"
+          cp LICENSE "$ARTIFACT_DIR/LICENSE"
+          cd "$ARTIFACT_DIR"
+          git init -q -b nvim
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q \
+            -m "TimeScope Neovim plugin $TAG (built by CI from packages/nvim)"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          gh auth setup-git
+          git push --force origin nvim
+          if git ls-remote --tags origin "refs/tags/nvim-$TAG" | \
+            grep -q .; then
+            echo "Tag nvim-$TAG already exists; tags are immutable."
+          else
+            git tag -a "nvim-$TAG" -m "TimeScope Neovim plugin $TAG"
+            git push origin "refs/tags/nvim-$TAG"
+          fi
