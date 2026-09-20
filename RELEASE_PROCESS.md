@@ -3,21 +3,23 @@
 ## Current release state
 
 - Latest release: **v0.2.29** (npm, GitHub Release)
-- Nothing is pending. Prepare the next release when there is something to ship:
-
-```bash
-pnpm release:prepare 0.2.30
-```
+- Nothing is pending. Cut the next release when there is something to ship:
+  Actions → **Cut Release** → *Run workflow* → version `0.2.30`. The workflow
+  bumps the manifests, tags `main`, publishes to npm, and creates the GitHub
+  Release with the VSIX and the Neovim artifact branch.
 
 ## The flow at a glance
 
 | # | Step | Who | Command / action |
 | - | ---- | --- | ---------------- |
-| 1 | Branch, bump versions, validate, open PR | human or LLM | `pnpm release:prepare 0.2.30` |
-| 2 | Review and merge the release PR | human | GitHub UI |
-| 3 | Tag, publish to npm, GitHub Release + VSIX, Neovim artifact | GitHub Actions | Actions → **Cut Release** → *Run workflow* → version `0.2.30` |
-| 4 | Publish the VSIX to the Marketplace | human | step 4 below |
-| 5 | Verify | human or LLM | step 5 below |
+| 1 | Bump manifests, tag, publish to npm, GitHub Release + VSIX, Neovim artifact | human, one click | Actions → **Cut Release** → *Run workflow* → version `0.2.30` |
+| 2 | Publish the VSIX to the Marketplace | human | step 4 below |
+| 3 | Verify and update the release history | human or LLM | step 5 below |
+
+Optional: `pnpm release:prepare 0.2.30` opens a pull request that performs the
+version bump for review instead of letting Cut Release commit it directly.
+Both paths end in the same place; sections 1-2 below describe that optional
+path.
 
 Done when: `npm view @rifen/timescope-core version` shows the new version, the
 GitHub Release is Latest with `timescope.vsix` attached, the Marketplace lists
@@ -61,14 +63,14 @@ TimeScope is a multi-package monorepo containing:
 - The lockfile must be committed whenever package manifests change. CI uses
   `--frozen-lockfile` and fails before running tests if it is stale.
 
-## Step 1 — Prepare the release (one command)
+## Steps 1-2 (optional) — Prepare a reviewed version-bump PR
 
 ```bash
 pnpm release:prepare 0.2.30
 ```
 
-The command verifies preconditions, then performs RELEASE_PROCESS steps that
-used to be manual:
+The command verifies preconditions, then performs the steps that Cut Release
+would otherwise automate:
 
 1. Checks a clean tracked tree, `gh` authentication, and that `main` matches
    `origin/main`.
@@ -107,7 +109,7 @@ tests, Neovim bridge tests, VS Code tests, editor E2E, package/VSIX build,
 CodeQL, and Opengrep. Merge with the repository's normal merge policy. Start
 step 3 only after the merge is on `origin/main`.
 
-## Step 3 — Cut the release (tag + npm + GitHub Release + VSIX)
+## Step 3 — Cut the release (bump + tag + npm + GitHub Release + VSIX + Neovim artifact)
 
 One click: GitHub → Actions → **Cut Release** → *Run workflow* → enter the
 version (for example `0.2.30`) → **Run workflow**. Or:
@@ -116,9 +118,9 @@ version (for example `0.2.30`) → **Run workflow**. Or:
 gh workflow run release-cut.yml --ref main -f version=0.2.30
 ```
 
-The workflow verifies that the four manifests match the version and that the
-tag and npm version are free, then creates the annotated tag `v<version>` on
-`main`. The tag push triggers **Publish Packages**:
+The workflow verifies that the tag and npm version are free, bumps the four
+manifests to the version (a bot commit on `main`), and creates the annotated
+tag `v<version>` on that commit. The tag push triggers **Publish Packages**:
 
 1. `publish-core` publishes `@rifen/timescope-core` to npm with provenance.
 2. `github-release` builds the VSIX and creates the GitHub Release with the
@@ -233,6 +235,7 @@ Automated:
 - GitHub Release creation with the VSIX attached
 - Neovim artifact branch (`nvim`) and `nvim-v*` tags
 - Release preparation (branch, version bump, PR) via `pnpm release:prepare`
+- Version-bump commit on `main` during Cut Release
 - Tag creation via the **Cut Release** workflow
 
 Manual:
@@ -244,8 +247,10 @@ Manual:
 
 ## For automated agents (LLMs)
 
-- Prepare releases with `pnpm release:prepare <version>`; never edit the four
-  manifests by hand and never tag locally.
+- Cut releases with the **Cut Release** workflow dispatch (it bumps the four
+  manifests automatically); `pnpm release:prepare <version>` is the optional
+  PR-reviewed variant. Never edit the four manifests by hand and never tag
+  locally.
 - Tags are created **only** through the **Cut Release** workflow dispatch and
   are immutable once pushed.
 - Never push directly to `main` and never use `--no-verify`.
