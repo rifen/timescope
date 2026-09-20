@@ -1,10 +1,12 @@
 ---
 name: Cut Release
 
-# One-click release gate: verifies the requested version is consistent and
-# free, then tags main. The tag push triggers "Publish Packages", which
-# publishes @rifen/timescope-core to npm and creates the GitHub Release with
-# the VSIX attached.
+# One-click release gate: verifies the tag and npm version are free, then
+# opens a version-bump pull request for the requested version. Merging that
+# PR bumps main, which triggers the tag-on-merge workflow and then
+# "Publish Packages" (npm, GitHub Release with the VSIX, Neovim artifact
+# branch). When the manifests already match the requested version, the tag
+# is created directly.
 
 on:
   workflow_dispatch:
@@ -41,9 +43,6 @@ jobs:
           node-version: 22.x
           check-latest: true
 
-      - name: Verify manifests match the requested version
-        run: node scripts/check-versions.mjs --expect "$VERSION"
-
       - name: Verify the tag and npm version are free
         run: |
           if git ls-remote --exit-code --tags origin \
@@ -58,7 +57,55 @@ jobs:
             exit 1
           fi
 
+      - name: Open the version-bump pull request
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$CURRENT" = "$VERSION" ]; then
+            echo "Manifests already at $VERSION; proceeding to tag."
+            echo "tag_now=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BRANCH="chore/release-bump-v$VERSION"
+          if git ls-remote --heads origin "$BRANCH" | grep -q .; then
+            echo "Branch $BRANCH already exists on origin."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email \
+              "41898282+github-actions[bot]@users.noreply.github.com"
+            git switch -c "$BRANCH"
+            node scripts/bump-versions.mjs "$VERSION"
+            git add package.json packages/core/package.json \
+              packages/nvim/package.json packages/vscode/package.json
+            git commit -m "chore(release): bump version to $VERSION"
+            gh auth setup-git
+            git push -u origin "$BRANCH"
+          fi
+          if gh pr list --head "$BRANCH" --state open --json number \
+            -q '.[0].number' | grep -q .; then
+            echo "Version-bump PR for $VERSION already exists."
+          else
+            {
+              echo "Automated version bump for the $VERSION release."
+              echo
+              echo "Merging publishes v$VERSION: npm, GitHub Release with"
+              echo "the VSIX, and the Neovim artifact branch."
+            } > "$RUNNER_TEMP/bump-pr-body.md"
+            gh pr create --base main --head "$BRANCH" \
+              --title "chore(release): bump to $VERSION" \
+              --body-file "$RUNNER_TEMP/bump-pr-body.md"
+          fi
+          echo "::notice::Merge the version-bump PR to publish the release."
+          echo "tag_now=false" >> "$GITHUB_OUTPUT"
+
+      - name: Verify manifests match the requested version
+        if: steps.bump.outputs.tag_now == 'true'
+        run: node scripts/check-versions.mjs --expect "$VERSION"
+
       - name: Create the annotated tag on main
+        if: steps.bump.outputs.tag_now == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -75,6 +122,7 @@ jobs:
           echo "Created refs/tags/v$VERSION at $SHA"
 
       - name: Confirm the tag is on origin
+        if: steps.bump.outputs.tag_now == 'true'
         run: |
           git ls-remote --tags origin "refs/tags/v$VERSION" \
             | grep -q "refs/tags/v$VERSION"

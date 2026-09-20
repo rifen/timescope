@@ -1,0 +1,85 @@
+---
+name: Tag Release
+
+# When main's manifest version moves ahead of the latest v* tag (for example
+# after merging a release bump PR), create the annotated release tag. The tag
+# push triggers "Publish Packages" (npm, GitHub Release with the VSIX, and the
+# Neovim artifact branch).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version: 22.x
+          check-latest: true
+
+      - name: Compare the manifest version with the latest tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --force --tags origin --quiet
+          VERSION=$(node -p "require('./package.json').version")
+          LATEST=$(git tag --sort=-v:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 | sed 's/^v//')
+          LATEST=${LATEST:-none}
+          echo "manifest version: $VERSION"
+          echo "latest release tag: $LATEST"
+          if [ "$LATEST" = "$VERSION" ]; then
+            echo "Tag v$VERSION already exists; nothing to do."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          elif [ "$(printf '%s\n%s\n' "$LATEST" "$VERSION" \
+            | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "Manifest version $VERSION is not ahead of $LATEST; skipping."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Create the annotated release tag
+        if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | \
+            grep -q .; then
+            echo "Tag v$VERSION already exists on origin;" \
+              "tags are immutable." >&2
+            exit 1
+          fi
+          SHA="$(git rev-parse HEAD)"
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/tags" \
+            -f tag="v$VERSION" \
+            -f message="Release version $VERSION" \
+            -f object="$SHA" \
+            -f type="commit" \
+            --jq .sha)"
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/v$VERSION" \
+            -f sha="$TAG_SHA" > /dev/null
+          echo "Created refs/tags/v$VERSION at $SHA"
+
+      - name: Dispatch Publish Packages
+        if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Tags created with GITHUB_TOKEN do not trigger other workflows, so
+        # the release publish is dispatched directly instead of waiting for
+        # the tag push event.
+        run: |
+          gh workflow run release.yml --ref main \
+            -f release_tag="v$VERSION"

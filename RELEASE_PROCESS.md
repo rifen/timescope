@@ -2,35 +2,38 @@
 
 ## Current release state
 
-- Latest release: **v0.2.29** (npm, GitHub Release)
-- Nothing is pending. Prepare the next release when there is something to ship:
-
-```bash
-pnpm release:prepare 0.2.30
-```
+- Latest release: **v0.2.31** (npm, GitHub Release with VSIX, Neovim artifact
+  branch)
+- Nothing is pending. To ship the next version (for example 0.2.31), follow
+  the flow below: it is one click to open the release PR, one merge to publish.
 
 ## The flow at a glance
 
 | # | Step | Who | Command / action |
 | - | ---- | --- | ---------------- |
-| 1 | Branch, bump versions, validate, open PR | human or LLM | `pnpm release:prepare 0.2.30` |
-| 2 | Review and merge the release PR | human | GitHub UI |
-| 3 | Tag, publish to npm, GitHub Release + VSIX, Neovim artifact | GitHub Actions | Actions → **Cut Release** → *Run workflow* → version `0.2.30` |
-| 4 | Publish the VSIX to the Marketplace | human | step 4 below |
-| 5 | Verify | human or LLM | step 5 below |
+| 1 | Open the version-bump PR | one click | Actions → **Cut Release** → *Run workflow* → version `0.2.31` |
+| 2 | Merge the bump PR → automatic publish | human | GitHub UI |
+| 3 | Publish the VSIX to the Marketplace | human | step 3 below |
+| 4 | Verify and update the release history | human or LLM | step 4 below |
+
+Merging the bump PR triggers the automated publish: release tag → npm with
+provenance → GitHub Release with the VSIX → Neovim artifact branch. No
+clone, no build, no manual version edits.
 
 Done when: `npm view @rifen/timescope-core version` shows the new version, the
 GitHub Release is Latest with `timescope.vsix` attached, the Marketplace lists
-the version, and this document's history has been updated through a PR.
+the version, `nvim-v<version>` exists on origin, and this document's history
+has been updated through a PR.
 
 ## Packages
 
 TimeScope is a multi-package monorepo containing:
 
 - Core library: `@rifen/timescope-core` (published to npm by release CI)
-- VS Code extension: `rifen-timescope` (VSIX built by release CI; Marketplace
-  publication is manual)
-- Neovim plugin: `timescope-nvim` (consumed from GitHub)
+- VS Code extension: `rifen-timescope` (VSIX built and attached by release CI;
+  Marketplace publication is manual)
+- Neovim plugin: published by release CI as the `nvim` artifact branch and
+  `nvim-v*` tags of this repository
 
 ## Prerequisites
 
@@ -43,118 +46,91 @@ TimeScope is a multi-package monorepo containing:
 
 ## Release rules
 
-- Never release from an unreviewed working tree or push release work straight to
-  `main`. Use a fresh branch and pull request every time.
-- Direct pushes to `main` and `master` are prohibited. Configure the local
-  guard after cloning: `pnpm setup:git-hooks`. The `.githooks/pre-push` hook
-  rejects direct pushes to protected branches. Do not bypass it with
-  `--no-verify`.
+- Never release from an unreviewed working tree. The **Cut Release** workflow
+  opens the version-bump PR; humans review and merge it.
+- Direct pushes to `main` and `master` are prohibited — for humans and for CI.
+  Configure the local guard after cloning: `pnpm setup:git-hooks`. The
+  `.githooks/pre-push` hook rejects direct pushes to protected branches. Do
+  not bypass it with `--no-verify`.
 - All four `package.json` versions must match. CI fails fast on mismatch via
-  `node scripts/check-versions.mjs`.
+  `node scripts/check-versions.mjs`; the **Cut Release** workflow updates them
+  automatically.
 - The release tag is immutable. If a tag points at a failed commit, fix the
-  issue and use the next patch version; never move or reuse a tag.
-- GitHub Releases in this repository are **immutable**. Assets must be attached
-  when the release is created; the automation does this.
+  issue and cut the next patch version; never move or reuse a tag.
+- GitHub Releases in this repository are **immutable**. Assets must be
+  attached when the release is created; the automation does this.
 - The release tag triggers `release.yml`, which publishes only the core npm
-  package and creates the GitHub Release with the VSIX. Marketplace publication
-  remains manual.
+  package and creates the GitHub Release with the VSIX and the Neovim
+  artifact branch. Marketplace publication remains manual.
 - The lockfile must be committed whenever package manifests change. CI uses
   `--frozen-lockfile` and fails before running tests if it is stale.
 
-## Step 1 — Prepare the release (one command)
+## Step 1 — Open the version-bump PR (one click)
+
+GitHub → Actions → **Cut Release** → *Run workflow* → enter the version (for
+example `0.2.31`) → **Run workflow**. Or:
 
 ```bash
-pnpm release:prepare 0.2.30
+gh workflow run release-cut.yml --ref main -f version=0.2.31
 ```
 
-The command verifies preconditions, then performs RELEASE_PROCESS steps that
-used to be manual:
+The workflow verifies that the tag and npm version are free, then:
 
-1. Checks a clean tracked tree, `gh` authentication, and that `main` matches
-   `origin/main`.
-2. Defaults the version to the next patch of the current manifests and verifies
-   it is free on npm and as a tag (pass an explicit version to override).
-3. Creates `chore/release-v<version>` from `main`.
-4. Bumps the four manifests and updates this document plus the release workflow
-   example.
-5. Runs `pnpm install --frozen-lockfile --ignore-scripts`, `pnpm run build`,
-   `pnpm test`, `pnpm test:e2e` (skip with `--skip-e2e`), and `git diff --check`.
-6. Commits `chore(release): prepare v<version>`, pushes, and opens the release
-   pull request.
+- if the manifests already carry the requested version, it tags `main`
+  directly (use this after a partial release failure);
+- otherwise it opens a pull request titled
+  `chore(release): bump to <version>` with the four-manifest version bump.
 
-Flags: `--skip-e2e`, `--dry-run` (verify and print the plan without changing
-anything). `pnpm test` runs the VS Code extension host, which needs a display
-or `xvfb`; `--skip-e2e` does not skip it, but CI covers it.
+Alternative (reviewed locally before pushing): run
+`pnpm release:prepare 0.2.31` — it performs the same bump on a release
+branch, validates the full suite locally, and opens the same PR. Both paths
+end with the same pull request.
 
-Manual fallback (identical outcome, for humans who prefer it):
+## Step 2 — Merge the bump PR (publishes automatically)
 
-```bash
-git switch main && git pull --ff-only origin main
-git switch -c chore/release-v0.2.30
-# bump the four package.json versions to 0.2.30, update this document
-pnpm install --frozen-lockfile --ignore-scripts
-pnpm run build && pnpm test && pnpm test:e2e && git diff --check
-git add package.json packages/*/package.json pnpm-lock.yaml RELEASE_PROCESS.md .github/workflows/release.yml
-git commit -m "chore(release): prepare v0.2.30"
-git push -u origin chore/release-v0.2.30
-gh pr create --base main --head chore/release-v0.2.30 --title "chore(release): prepare v0.2.30"
-```
+Review the PR (it contains only the four-manifest version bump) and merge it.
+The merge triggers the automated publish:
 
-## Step 2 — Merge the release PR
-
-The PR must pass CI: the version-match check, frozen-lockfile install, core
-tests, Neovim bridge tests, VS Code tests, editor E2E, package/VSIX build,
-CodeQL, and Opengrep. Merge with the repository's normal merge policy. Start
-step 3 only after the merge is on `origin/main`.
-
-## Step 3 — Cut the release (tag + npm + GitHub Release + VSIX)
-
-One click: GitHub → Actions → **Cut Release** → *Run workflow* → enter the
-version (for example `0.2.30`) → **Run workflow**. Or:
-
-```bash
-gh workflow run release-cut.yml --ref main -f version=0.2.30
-```
-
-The workflow verifies that the four manifests match the version and that the
-tag and npm version are free, then creates the annotated tag `v<version>` on
-`main`. The tag push triggers **Publish Packages**:
-
-1. `publish-core` publishes `@rifen/timescope-core` to npm with provenance.
-2. `github-release` builds the VSIX and creates the GitHub Release with the
-   VSIX attached at creation (releases here are immutable).
-3. `github-release` also publishes the Neovim artifact: an orphan branch
-   `nvim` containing the plugin plus the prebuilt Node.js bridge, force-pushed
-   and tagged `nvim-v<version>` so users install with a one-line plugin spec.
+1. **Tag Release** creates the annotated tag `v<version>` on the merge commit
+   and dispatches **Publish Packages** (tag-on-merge workflow).
+2. **Publish Packages** (`release.yml`) then:
+   - publishes `@rifen/timescope-core` to npm with provenance;
+   - builds the VSIX and creates the GitHub Release with it attached
+     (releases are immutable — the asset is attached at creation);
+   - publishes the Neovim artifact: the orphan branch `nvim` with the plugin
+     and the prebuilt bridge, tagged `nvim-v<version>`.
 
 Monitor:
 
 ```bash
-gh run list --workflow "Publish Packages" --limit 5
+gh run list --limit 5
 gh run watch <RUN_ID> --exit-status
 ```
 
-## Step 4 — Publish the VSIX to the Marketplace (manual)
+Do not publish manually to npm unless the release workflow has been
+deliberately changed and these instructions updated.
 
-The release workflow attaches `timescope.vsix` to the GitHub Release. Download
-it and publish (Marketplace publication is intentionally not automated; see
-AGENTS.md):
+## Step 3 — Publish the VSIX to the Marketplace (manual)
+
+Download the VSIX from the GitHub Release assets and publish:
 
 ```bash
-gh release download v0.2.30 -p "timescope.vsix"
+gh release download v0.2.31 -p "timescope.vsix"
 npx @vscode/vsce publish --no-dependencies --packagePath timescope.vsix
 ```
 
-`vsce publish` requires `VSCE_PAT`. Do not add runtime dependencies to
-`packages/vscode/package.json`; packaging must use `--no-dependencies`.
+`vsce publish` requires `VSCE_PAT`. Marketplace publication is intentionally
+not automated (see AGENTS.md): no OIDC-capable publisher organization exists.
+Do not add runtime dependencies to `packages/vscode/package.json`; packaging
+must use `--no-dependencies`.
 
-## Step 5 — Verify
+## Step 4 — Verify
 
 ```bash
-npm view @rifen/timescope-core version   # -> 0.2.30
-gh release view v0.2.30                  # Latest, timescope.vsix attached
-git ls-remote --tags origin v0.2.30
-git ls-remote --tags origin nvim-v0.2.30
+npm view @rifen/timescope-core version   # -> 0.2.31
+gh release view v0.2.31                  # Latest, timescope.vsix attached
+git ls-remote --tags origin v0.2.31
+git ls-remote --tags origin nvim-v0.2.31
 ```
 
 Also confirm the Marketplace version matches, then update the Release History
@@ -217,6 +193,8 @@ Verify that:
 Update this list after each completed release. Use `git tag` and GitHub
 Releases as the source of truth.
 
+- v0.2.30 - Released (npm, GitHub Release with VSIX attached, Neovim artifact
+  branch + tag). First release using the version-bump PR + tag-on-merge flow.
 - v0.2.29 - Released (npm, GitHub Release). First release on the automated
   flow; the VSIX was not attached because immutable releases reject
   post-publication uploads (fixed for future releases).
@@ -229,28 +207,29 @@ Releases as the source of truth.
 Automated:
 
 - CI tests, builds, E2E checks, and VSIX artifact creation
+- Version-bump PR opened by the **Cut Release** workflow
+- Release tag created when the version bump merges to `main`
 - npm publication of `@rifen/timescope-core` after a release tag
 - GitHub Release creation with the VSIX attached
 - Neovim artifact branch (`nvim`) and `nvim-v*` tags
-- Release preparation (branch, version bump, PR) via `pnpm release:prepare`
-- Tag creation via the **Cut Release** workflow
 
 Manual:
 
-- Running `pnpm release:prepare` and the **Cut Release** workflow
-- Reviewing and merging the release pull request
+- Running the **Cut Release** workflow
+- Reviewing and merging the version-bump pull request
 - Publishing the VSIX to the VS Code Marketplace
+- Updating the Release History through a pull request
 - Neovim release communication through GitHub
 
 ## For automated agents (LLMs)
 
-- Prepare releases with `pnpm release:prepare <version>`; never edit the four
-  manifests by hand and never tag locally.
-- Tags are created **only** through the **Cut Release** workflow dispatch and
-  are immutable once pushed.
-- Never push directly to `main` and never use `--no-verify`.
-- If `pnpm release:prepare` fails, fix the reported step or open a regular
-  branch and PR; do not improvise release steps.
-- After a release, update the Release History through a pull request.
+- To ship a release, run the **Cut Release** workflow dispatch with the target
+  version (or ask the human to), then merge the version-bump PR it opens —
+  everything after the merge is automated. Never edit the four manifests by
+  hand and never tag locally.
+- Tags are immutable once pushed; never push directly to `main`; never use
+  `--no-verify`.
+- If a step fails, follow the Recovery section above or fix the reported step
+  in a pull request; do not improvise release steps.
 - Validation commands a human may ask you to run: `pnpm test`, `pnpm test:e2e`,
   `pnpm run build`, `git diff --check`, and `node scripts/check-versions.mjs`.
