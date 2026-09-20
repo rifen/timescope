@@ -2,15 +2,16 @@
 
 ## Current release state
 
-- Latest release: **v0.2.29** (npm, GitHub Release)
-- Nothing is pending. To ship the next version (for example 0.2.30), follow
+- Latest release: **v0.2.31** (npm, GitHub Release with VSIX, Neovim artifact
+  branch)
+- Nothing is pending. To ship the next version (for example 0.2.31), follow
   the flow below: it is one click to open the release PR, one merge to publish.
 
 ## The flow at a glance
 
 | # | Step | Who | Command / action |
 | - | ---- | --- | ---------------- |
-| 1 | Open the version-bump PR | one click | Actions → **Cut Release** → *Run workflow* → version `0.2.30` |
+| 1 | Open the version-bump PR | one click | Actions → **Cut Release** → *Run workflow* → version `0.2.31` |
 | 2 | Merge the bump PR → automatic publish | human | GitHub UI |
 | 3 | Publish the VSIX to the Marketplace | human | step 3 below |
 | 4 | Verify and update the release history | human or LLM | step 4 below |
@@ -67,10 +68,10 @@ TimeScope is a multi-package monorepo containing:
 ## Step 1 — Open the version-bump PR (one click)
 
 GitHub → Actions → **Cut Release** → *Run workflow* → enter the version (for
-example `0.2.30`) → **Run workflow**. Or:
+example `0.2.31`) → **Run workflow**. Or:
 
 ```bash
-gh workflow run release-cut.yml --ref main -f version=0.2.30
+gh workflow run release-cut.yml --ref main -f version=0.2.31
 ```
 
 The workflow verifies that the tag and npm version are free, then:
@@ -81,7 +82,7 @@ The workflow verifies that the tag and npm version are free, then:
   `chore(release): bump to <version>` with the four-manifest version bump.
 
 Alternative (reviewed locally before pushing): run
-`pnpm release:prepare 0.2.30` — it performs the same bump on a release
+`pnpm release:prepare 0.2.31` — it performs the same bump on a release
 branch, validates the full suite locally, and opens the same PR. Both paths
 end with the same pull request.
 
@@ -91,7 +92,7 @@ Review the PR (it contains only the four-manifest version bump) and merge it.
 The merge triggers the automated publish:
 
 1. **Tag Release** creates the annotated tag `v<version>` on the merge commit
-   (tag-on-merge workflow).
+   and dispatches **Publish Packages** (tag-on-merge workflow).
 2. **Publish Packages** (`release.yml`) then:
    - publishes `@rifen/timescope-core` to npm with provenance;
    - builds the VSIX and creates the GitHub Release with it attached
@@ -114,7 +115,7 @@ deliberately changed and these instructions updated.
 Download the VSIX from the GitHub Release assets and publish:
 
 ```bash
-gh release download v0.2.30 -p "timescope.vsix"
+gh release download v0.2.31 -p "timescope.vsix"
 npx @vscode/vsce publish --no-dependencies --packagePath timescope.vsix
 ```
 
@@ -126,10 +127,10 @@ must use `--no-dependencies`.
 ## Step 4 — Verify
 
 ```bash
-npm view @rifen/timescope-core version   # -> 0.2.30
-gh release view v0.2.30                  # Latest, timescope.vsix attached
-git ls-remote --tags origin v0.2.30
-git ls-remote --tags origin nvim-v0.2.30
+npm view @rifen/timescope-core version   # -> 0.2.31
+gh release view v0.2.31                  # Latest, timescope.vsix attached
+git ls-remote --tags origin v0.2.31
+git ls-remote --tags origin nvim-v0.2.31
 ```
 
 Also confirm the Marketplace version matches, then update the Release History
@@ -192,6 +193,8 @@ Verify that:
 Update this list after each completed release. Use `git tag` and GitHub
 Releases as the source of truth.
 
+- v0.2.30 - Released (npm, GitHub Release with VSIX attached, Neovim artifact
+  branch + tag). First release using the version-bump PR + tag-on-merge flow.
 - v0.2.29 - Released (npm, GitHub Release). First release on the automated
   flow; the VSIX was not attached because immutable releases reject
   post-publication uploads (fixed for future releases).
