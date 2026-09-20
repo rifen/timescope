@@ -59,12 +59,11 @@
 
 **Requirements:** Neovim &ge; 0.7 and Node.js &ge; 18.
 
-Install with your plugin manager of choice:
-
 **[lazy.nvim](https://github.com/folke/lazy.nvim)**:
 ```lua
 {
-  'rifen/timescope.nvim',
+  'rifen/timescope',
+  tag = 'nvim-v0.2.30', -- latest nvim-v* tag; or branch = 'nvim' for rolling
   opts = {
     format = 'compact',
   },
@@ -74,7 +73,8 @@ Install with your plugin manager of choice:
 **[packer.nvim](https://github.com/wbthomason/packer.nvim)**:
 ```lua
 use {
-  'rifen/timescope.nvim',
+  'rifen/timescope',
+  tag = 'nvim-v0.2.30',
   config = function()
     require('timescope').setup({
       format = 'compact',
@@ -82,6 +82,11 @@ use {
   end,
 }
 ```
+
+The `nvim-v*` tags are published by CI on every release and ship the prebuilt
+Node.js bridge — no clone or build required. See the Releases page for the
+latest tag. To run from a source checkout instead, see
+[`packages/nvim/README.md`](packages/nvim).
 
 Move the cursor over any numeric duration to view the formatted duration rendered as inline virtual text.
 

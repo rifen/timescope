@@ -3,12 +3,8 @@
 
 return {
   -- TimeScope: hover to see human-readable durations
-  'rifen/timescope.nvim',
-  version = '^0.1.0',
-  dependencies = {
-    -- Optional: plenary.nvim for enhanced job control
-    'nvim-lua/plenary.nvim',
-  },
+  'rifen/timescope',
+  tag = 'nvim-v0.2.30', -- latest nvim-v* tag; or branch = 'nvim' for rolling
   opts = {
     -- Output format: 'compact', 'verbose', or 'both'
     format = 'compact',

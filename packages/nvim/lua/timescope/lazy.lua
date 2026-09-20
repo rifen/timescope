@@ -2,11 +2,8 @@
 -- Add this to your lazy.nvim config:
 
 return {
-  'rifen/timescope.nvim',
-  version = '^0.1.0',
-  dependencies = {
-    'nvim-lua/plenary.nvim' -- optional, for better job control
-  },
+  'rifen/timescope',
+  tag = 'nvim-v0.2.30', -- latest nvim-v* tag; or branch = 'nvim' for rolling
   opts = {
     format = 'compact',          -- compact, verbose, or both
     default_unit = 'seconds',
