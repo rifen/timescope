@@ -1,10 +1,11 @@
 ---
 name: Cut Release
 
-# One-click release gate: verifies the requested version is consistent and
-# free, then tags main. The tag push triggers "Publish Packages", which
-# publishes @rifen/timescope-core to npm and creates the GitHub Release with
-# the VSIX attached.
+# One-click release gate: verifies the tag and npm version are free, bumps the
+# manifests to the requested version (a bot commit on main), and tags main.
+# The tag push triggers "Publish Packages", which publishes
+# @rifen/timescope-core to npm and creates the GitHub Release with the VSIX
+# attached.
 
 on:
   workflow_dispatch:
@@ -41,9 +42,6 @@ jobs:
           node-version: 22.x
           check-latest: true
 
-      - name: Verify manifests match the requested version
-        run: node scripts/check-versions.mjs --expect "$VERSION"
-
       - name: Verify the tag and npm version are free
         run: |
           if git ls-remote --exit-code --tags origin \
@@ -57,6 +55,29 @@ jobs:
             echo "Version $VERSION is already published to npm." >&2
             exit 1
           fi
+
+      - name: Update manifests to the requested version
+        run: node scripts/bump-versions.mjs "$VERSION"
+
+      - name: Commit and push the version bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "Manifests already at $VERSION; nothing to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email \
+              "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package.json packages/core/package.json \
+              packages/nvim/package.json packages/vscode/package.json
+            git commit -m "chore(release): bump version to $VERSION"
+            gh auth setup-git
+            git push origin HEAD:main
+          fi
+
+      - name: Verify manifests match the requested version
+        run: node scripts/check-versions.mjs --expect "$VERSION"
 
       - name: Create the annotated tag on main
         env:
