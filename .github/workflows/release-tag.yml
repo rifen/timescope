@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag:
@@ -71,3 +72,12 @@ jobs:
             -f ref="refs/tags/v$VERSION" \
             -f sha="$TAG_SHA" > /dev/null
           echo "Created refs/tags/v$VERSION at $SHA"
+
+      - name: Dispatch Publish Packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Tags created with GITHUB_TOKEN do not trigger other workflows, so
+        # the release publish is dispatched directly instead of waiting for
+        # the tag push event.
+        run: gh workflow run release.yml --ref main \
+          -f release_tag="v$VERSION"
