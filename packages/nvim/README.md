@@ -11,13 +11,16 @@ TimeScope eliminates the mental math of converting raw numbers (seconds, millise
 
 ## Installation
 
+Install with your plugin manager of choice. The `nvim-v*` tags are published by
+CI on every release and include the prebuilt Node.js bridge:
+
 ### lazy.nvim
 
 ```lua
 -- ~/.config/nvim/lua/plugins/timescope.lua
 return {
-  'rifen/timescope.nvim',
-  version = '*',
+  'rifen/timescope',
+  tag = 'nvim-v0.2.30', -- latest nvim-v* tag; or branch = 'nvim' for rolling
   event = 'VeryLazy',
   keys = {
     { '<leader>tl', '<cmd>TimeScopeToggle<cr>', desc = 'TimeScope: Toggle' },
@@ -38,13 +41,30 @@ return {
 
 ```lua
 use {
-  'rifen/timescope.nvim',
+  'rifen/timescope',
+  tag = 'nvim-v0.2.30',
   config = function()
     require('timescope').setup({
       format = 'compact',
       contextClues = true,
     })
   end,
+}
+```
+
+### From source (contributors)
+
+```bash
+git clone https://github.com/rifen/timescope.git ~/src/timescope
+cd ~/src/timescope
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm --filter timescope-nvim build   # generates bin/timescope-bridge.js
+```
+
+```lua
+{
+  dir = '~/src/timescope/packages/nvim',
+  name = 'timescope',
 }
 ```
 
@@ -117,8 +137,8 @@ The plugin is designed to work seamlessly with lazy.nvim:
 ```lua
 -- ~/.config/nvim/lua/plugins/timescope.lua
 return {
-  'rifen/timescope.nvim',
-  version = '*',
+  'rifen/timescope',
+  tag = 'nvim-v0.2.30', -- latest nvim-v* tag; or branch = 'nvim' for rolling
   event = 'VeryLazy',
   keys = {
     { '<leader>tl', '<cmd>TimeScopeToggle<cr>', desc = 'TimeScope: Toggle' },
