@@ -68,6 +68,9 @@ jobs:
       - name: Run editor E2E tests
         run: xvfb-run -a pnpm test:e2e
 
+      - name: Run Neovim installation test
+        run: bash scripts/test-nvim-install.sh
+
   package:
     runs-on: ubuntu-latest
     needs: test

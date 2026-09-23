@@ -10,6 +10,7 @@
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter @rifen/timescope-core build && pnpm --filter timescope-nvim build && pnpm --filter timescope-nvim test:e2e && pnpm --filter rifen-timescope test:e2e",
+    "test:e2e:install": "pnpm --filter @rifen/timescope-core build && pnpm --filter timescope-nvim build && pnpm --filter timescope-nvim test:e2e:install",
     "test:manual:vscode": "pnpm --filter rifen-timescope quick-test",
     "test:manual:nvim": "pnpm --filter timescope-nvim test:manual",
     "lint": "pnpm -r run lint",

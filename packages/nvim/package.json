@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.bridge.json && ncc build bin/timescope-bridge.js -o .bridge-bundle && mv .bridge-bundle/index.js bin/timescope-bridge.js && rm -rf .bridge-bundle",
     "test": "jest --runInBand",
     "test:e2e": "nvim --headless --clean -u test/headless.lua",
+    "test:e2e:install": "bash ../../scripts/test-nvim-install.sh",
     "test:manual": "bash ./scripts/manual-test.sh",
     "test:watch": "jest --watch"
   },
