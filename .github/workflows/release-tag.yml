@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22.x
           check-latest: true
